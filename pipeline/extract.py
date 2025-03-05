@@ -1,14 +1,22 @@
 import os
 import json
 import asyncio
-from datetime import datetime
-from typing import Dict, List, Any, Optional
 import psycopg
-from queue import Queue
 import threading
 import uuid
-from dataclasses import dataclass, field, asdict
 import logging
+
+from datetime import datetime
+from typing import Dict, List, Any, Optional
+from queue import Queue
+from dataclasses import dataclass, field, asdict
+from celery import Celery
+from celery.result import AsyncResult
+
+from config import (
+    REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
+)
+from services.redis import RedisClient
 
 # Configure logging
 logging.basicConfig(
@@ -17,6 +25,20 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger("extract")
+
+celery_app = Celery(
+    "extract_tasks", 
+    broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}", 
+    backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+)
+if REDIS_PASSWORD:
+    celery_app.conf.broker_url = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+    celery_app.conf.result_backend = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+
+celery_app.conf.task_serializer = "json"
+celery_app.conf.result_serializer = "json"
+celery_app.conf.accept_content = ["json"]
+celery_app.conf.result_expires = 60*60*24  # 1 day
 
 @dataclass
 class ExtractJob:
@@ -32,15 +54,11 @@ class ExtractJob:
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     total_records: int = 0
     extracted_records: int = 0
+    celery_task_id: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert job to dictionary."""
         return asdict(self)
-    
-# Global job queue
-job_queue: Queue = Queue()
-active_jobs: Dict[str, ExtractJob] = {}
-completed_jobs: Dict[str, ExtractJob] = {}
 
 class DataExtractor:
     """Handles data extraction from PostgreSQL database."""
@@ -48,10 +66,10 @@ class DataExtractor:
     def __init__(self, conn_params: Dict[str, Any]):
         """Initialize extractor with connection parameters."""
         self.conn_params = conn_params
-        self.output_dir = os.path.join(os.getcwd(), "extracted_data")
+        self.output_dir = os.path.join(os.getcwd(), "data", "output")
         os.makedirs(self.output_dir, exist_ok=True)
         
-    async def extract_incremental(self, job: ExtractJob) -> bool:
+    async def extract_incremental(self, job_dict: Dict[str, Any]) -> bool:
         """
         Extract data incrementally from a table using cursor-based pagination.
         
@@ -61,6 +79,7 @@ class DataExtractor:
         Returns:
             bool: True if successful, False otherwise
         """
+        job = ExtractJob(**job_dict)
         try:
             job.status = "running"
             job.updated_at = datetime.now().isoformat()
@@ -100,15 +119,16 @@ class DataExtractor:
                     job.updated_at = datetime.now().isoformat()
                     job.cursor_value = next_cursor_value
                     cursor_value = next_cursor_value
+
+                    # Store updated job status
+                    update_job_status(job)
                 else:
                     has_more_data = False
-                
-                # Simulating network delay for non-local testing
-                await asyncio.sleep(0.1)
             
             # Mark job as completed
             job.status = "completed"
             job.updated_at = datetime.now().isoformat()
+            update_job_status(job)
             return True
         
         except Exception as e:
@@ -117,63 +137,60 @@ class DataExtractor:
             job.status = "failed"
             job.error = str(e)
             job.updated_at = datetime.now().isoformat()
+            update_job_status(job)
             return False
         
     async def _get_total_count(self, table_name: str, cursor_column: str, cursor_value: Any) -> int:
-        """Get total count of records for progress tracking."""
-        try:
-            async with await psycopg.AsyncConnection.connect(**self.conn_params) as conn:
-                async with conn.cursor() as cur:
-                    query = f"SELECT COUNT(*) FROM {table_name}"
-                    if cursor_value is not None:
-                        query += f" WHERE {cursor_column} > %s"
-                        await cur.execute(query, (cursor_value,))
-                    else:
-                        await cur.execute(query)
-                    
-                    result = await cur.fetchone()
-                    return result[0] if result else 0
-        except Exception as e:
-            logger.error(f"Error getting count: {str(e)}")
-            return 0
+        """Get total record count for a table."""
+        where_clause = ""
+        params = []
         
-    async def _extract_batch(
-        self, 
-        table_name: str, 
-        cursor_column: str, 
-        cursor_value: Any, 
-        batch_size: int
-    ) -> tuple[List[Dict[str, Any]], Any]:
-        """Extract a batch of data using cursor-based pagination."""
+        if cursor_value is not None:
+            where_clause = f"WHERE {cursor_column} > %s"
+            params = [cursor_value]
+            
+        query = f"SELECT COUNT(*) FROM {table_name} {where_clause}"
+        
         async with await psycopg.AsyncConnection.connect(**self.conn_params) as conn:
-            # Use row_factory to get dictionaries
-            async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-                # Build query based on whether we have a cursor value
-                if cursor_value is not None:
-                    query = f"""
-                        SELECT * FROM {table_name} 
-                        WHERE {cursor_column} > %s 
-                        ORDER BY {cursor_column} ASC 
-                        LIMIT %s
-                    """
-                    await cur.execute(query, (cursor_value, batch_size))
-                else:
-                    query = f"""
-                        SELECT * FROM {table_name} 
-                        ORDER BY {cursor_column} ASC 
-                        LIMIT %s
-                    """
-                    await cur.execute(query, (batch_size,))
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                result = await cur.fetchone()
+                return result[0] if result else 0
+        
+    async def _extract_batch(self, table_name: str, cursor_column: str, cursor_value: Any, batch_size: int):
+        """Extract a batch of data from a table."""
+        where_clause = ""
+        params = [batch_size]
+        
+        if cursor_value is not None:
+            where_clause = f"WHERE {cursor_column} > %s"
+            params = [cursor_value, batch_size]
+            
+        query = f"""
+        SELECT * FROM {table_name} 
+        {where_clause}
+        ORDER BY {cursor_column} ASC 
+        LIMIT %s
+        """
+        
+        async with await psycopg.AsyncConnection.connect(**self.conn_params) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                columns = [desc[0] for desc in cur.description]
+                batch_data = []
                 
-                # Fetch results
-                results = await cur.fetchall()
+                # Fetch all rows in the batch
+                rows = await cur.fetchall()
                 
-                # Get the next cursor value if we have results
-                next_cursor_value = cursor_value
-                if results and len(results) > 0:
-                    next_cursor_value = results[-1][cursor_column]
+                for row in rows:
+                    # Convert row to dict with column names
+                    row_dict = {columns[i]: value for i, value in enumerate(row)}
+                    batch_data.append(row_dict)
                 
-                return results, next_cursor_value
+                # Get the new cursor value (last row's cursor column)
+                next_cursor_value = rows[-1][columns.index(cursor_column)] if rows else cursor_value
+                
+                return batch_data, next_cursor_value
             
     def _get_output_path(self, table_name: str, job_id: str, batch_num: int) -> str:
         """Generate output file path."""
@@ -182,123 +199,127 @@ class DataExtractor:
         return os.path.join(self.output_dir, filename)
     
     def _save_to_json(self, data: List[Dict[str, Any]], file_path: str) -> None:
-        """Save data as JSON file."""
-        # Custom JSON encoder to handle non-serializable types
-        class CustomJSONEncoder(json.JSONEncoder):
-            def default(self, obj):
-                if isinstance(obj, datetime):
-                    return obj.isoformat()
-                if isinstance(obj, (bytes, bytearray)):
-                    return obj.hex()
-                return json.JSONEncoder.default(self, obj)
-        
-        with open(file_path, 'w') as f:
-            json.dump(data, f, cls=CustomJSONEncoder, indent=2)
-        
+        """Save data to a JSON file."""
+        with open(file_path, "w") as f:
+            json.dump(data, f)
         logger.info(f"Saved {len(data)} records to {file_path}")
 
-# Worker functions
-async def process_job(extractor: DataExtractor, job: ExtractJob) -> None:
-    """Process a single extraction job."""
-    logger.info(f"Processing job {job.id} for table {job.table_name}")
+# Celery tasks
+@celery_app.task(name="extract.process_job", bind=True)
+def process_job_task(self, job_dict, conn_params) -> None:
+    """Celery task to process a job."""
+    task_id = self.request.id
+    job_dict['celery_task_id'] = task_id
+    job_dict['status'] = 'running'
+    job_dict['updated_at'] = datetime.now().isoformat()
     
-    try:
-        # Add to active jobs
-        active_jobs[job.id] = job
-        
-        # Execute the extraction
-        await extractor.extract_incremental(job)
-        
-        # Move to completed jobs
-        if job.id in active_jobs:
-            del active_jobs[job.id]
-        completed_jobs[job.id] = job
-        
-        logger.info(f"Job {job.id} completed with status: {job.status}")
+    # Store updated job in Redis
+    update_job_status(ExtractJob(**job_dict))
     
-    except Exception as e:
-        logger.error(f"Error processing job {job.id}: {str(e)}")
-        job.status = "failed"
-        job.error = str(e)
-        job.updated_at = datetime.now().isoformat()
-        
-        # Move to completed jobs (with failed status)
-        if job.id in active_jobs:
-            del active_jobs[job.id]
-        completed_jobs[job.id] = job
-
-async def worker_loop(conn_params: Dict[str, Any]) -> None:
-    """Background worker loop to process extraction jobs."""
+    # Use connection parameters passed from the route
     extractor = DataExtractor(conn_params)
-    logger.info("Worker started")
-    
-    while True:
-        try:
-            # Check if we have jobs in the queue
-            if not job_queue.empty():
-                job = job_queue.get()
-                await process_job(extractor, job)
-                job_queue.task_done()
-            else:
-                # Wait a bit before checking again
-                await asyncio.sleep(1)
-        
-        except Exception as e:
-            logger.error(f"Worker error: {str(e)}")
-            await asyncio.sleep(5)  # Wait a bit longer after errors
-
-def start_worker(conn_params: Dict[str, Any]) -> None:
-    """Start the background worker in a separate thread."""
-    async def run_worker():
-        await worker_loop(conn_params)
-    
-    def thread_target():
-        asyncio.run(run_worker())
-    
-    worker_thread = threading.Thread(target=thread_target, daemon=True)
-    worker_thread.start()
-    logger.info("Worker thread started")
+    result = asyncio.run(extractor.extract_incremental(job_dict))
+    return result
 
 def add_extract_job(
+    source_db_id: int,
     table_name: str, 
     cursor_column: str, 
     cursor_value: Any = None, 
-    batch_size: int = 1000
+    batch_size: int = 1000,
+    conn_params: Dict[str, Any] = None
 ) -> ExtractJob:
     """
-    Add a new extraction job to the queue.
+    Add a new extraction job to the queue using Celery.
     
     Args:
+        source_db_id: ID of the source database
         table_name: Name of the table to extract
         cursor_column: Column to use for incremental extraction
         cursor_value: Starting value for the cursor (None for beginning)
         batch_size: Number of records to fetch in each batch
+        conn_params: Database connection parameters
         
     Returns:
         ExtractJob: The created job
     """
     job = ExtractJob(
+        source_db_id=source_db_id,
         table_name=table_name,
         cursor_column=cursor_column,
         cursor_value=cursor_value,
         batch_size=batch_size
     )
     
-    job_queue.put(job)
-    logger.info(f"Added job {job.id} to queue for table {table_name}")
+    # Submit job to Celery
+    job_dict = job.to_dict()
+    result = process_job_task.delay(job_dict, conn_params)
+    job.celery_task_id = result.id
+    
+    # Store initial job status
+    update_job_status(job)
+    
+    logger.info(f"Added job {job.id} to Celery queue for table {table_name}")
     return job
 
+def update_job_status(job: ExtractJob) -> None:
+    """Update job status in Redis."""
+    redis_client = RedisClient(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD
+    )
+    
+    redis_client.set(f"job:{job.id}", json.dumps(job.to_dict()))
+
 def get_job_status(job_id: str) -> Optional[Dict[str, Any]]:
-    """Get status of a job."""
-    if job_id in active_jobs:
-        return active_jobs[job_id].to_dict()
-    elif job_id in completed_jobs:
-        return completed_jobs[job_id].to_dict()
+    """Get status of a job from Redis."""
+    redis_client = RedisClient(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD
+    )
+    
+    job_data = redis_client.get(f"job:{job_id}")
+    if job_data:
+        return json.loads(job_data)
+    
+    # Check Celery status if job not in Redis
+    task = AsyncResult(job_id, app=celery_app)
+    if task.state:
+        return {
+            "id": job_id,
+            "status": task.state.lower(),
+            "error": str(task.result) if task.failed() else None
+        }
+    
     return None
 
 def list_jobs() -> Dict[str, Any]:
-    """List all jobs."""
+    """List all jobs from Redis."""
+    redis_client = RedisClient(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD
+    )
+    
+    # Get all job keys
+    job_keys = redis_client.client.keys("job:*")
+    
+    active_jobs = []
+    completed_jobs = []
+    
+    for key in job_keys:
+        job_data = json.loads(redis_client.get(key))
+        if job_data["status"] in ["pending", "running"]:
+            active_jobs.append(job_data)
+        else:
+            completed_jobs.append(job_data)
+    
     return {
-        "active": [job.to_dict() for job in active_jobs.values()],
-        "completed": [job.to_dict() for job in completed_jobs.values()]
+        "active": active_jobs,
+        "completed": completed_jobs
     }

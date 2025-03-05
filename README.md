@@ -15,3 +15,9 @@ A lightweight API service for PostgreSQL database exploration and data extractio
   - Loading data from GCS to BigQuery
   - Schema translation from PostgreSQL to BigQuery
   - Configurable partitioning and clustering in BigQuery tables
+
+## How to run
+You can run the application in different modes:\
+For the API server: `uv run main.py --mode server`\
+For the Celery worker: `uv run main.py --mode worker --loglevel=info --concurrency=4`\
+If you don't specify the mode, it defaults to running the server.

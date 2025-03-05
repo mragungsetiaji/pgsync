@@ -51,12 +51,23 @@ def create_extraction_job(job_data: ExtractJobCreate, db: Session = Depends(get_
             detail=f"Column '{job_data.cursor_column}' not found in table '{job_data.table_name}'"
         )
     
+    # Create connection params for the data source
+    conn_params = {
+        "host": source_db.host,
+        "port": source_db.port,
+        "dbname": source_db.database,
+        "user": source_db.user,
+        "password": source_db.password
+    }
+    
     # Add job to queue
     job = add_extract_job(
+        source_db_id=job_data.source_db_id,
         table_name=job_data.table_name,
         cursor_column=job_data.cursor_column,
         cursor_value=job_data.cursor_value,
-        batch_size=job_data.batch_size
+        batch_size=job_data.batch_size,
+        conn_params=conn_params
     )
     
     # Save job to database
