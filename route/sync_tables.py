@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
@@ -13,7 +13,6 @@ router = APIRouter(
     tags=["Sync Tables"]
 )
 
-from pydantic import BaseModel, Field
 
 @router.post("/", response_model=SyncTableResponse)
 def create_sync_table(table_data: SyncTableCreate, db: Session = Depends(get_db_session)):

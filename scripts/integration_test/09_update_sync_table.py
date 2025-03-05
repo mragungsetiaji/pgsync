@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from _config import BASE_URL
 from _utils import print_sync_table
 import requests

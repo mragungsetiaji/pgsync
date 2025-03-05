@@ -1,4 +1,3 @@
-from typing import Dict, Any, List, Optional
 from _config import BASE_URL
 import requests
 

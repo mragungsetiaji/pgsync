@@ -2,13 +2,11 @@ import os
 import json
 import asyncio
 import psycopg
-import threading
 import uuid
 import logging
 
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-from queue import Queue
 from dataclasses import dataclass, field, asdict
 from celery import Celery
 from celery.result import AsyncResult

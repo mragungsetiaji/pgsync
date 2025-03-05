@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from _config import BASE_URL
 import requests
 

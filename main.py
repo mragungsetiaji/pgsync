@@ -3,6 +3,7 @@ from models.api import StatusResponse
 from route.sources import router as sources_router
 from route.extractions import router as extractions_router
 from route.sync_tables import router as sync_tables_router
+from route.connection_settings import router as connection_settings_router
 
 app = FastAPI(
     title="PostgreSQL Database Explorer",
@@ -14,6 +15,7 @@ app = FastAPI(
 app.include_router(sources_router)
 app.include_router(extractions_router)
 app.include_router(sync_tables_router)
+app.include_router(connection_settings_router)
 
 @app.get("/", response_model=StatusResponse)
 def root():
@@ -26,9 +28,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run PGSync server or worker")
     parser.add_argument("--mode",
                         type=str, 
-                        choices=["server", "worker"], 
+                        choices=["server", "worker", "scheduler"], 
                         default="server", 
-                        help="Run mode: 'server' for API or 'worker' for Celery")
+                        help="Run mode: 'server' for API or 'worker' for Celery or 'scheduler' for task scheduler")
     parser.add_argument("--loglevel", 
                         type=str, 
                         default="info", 
@@ -37,6 +39,8 @@ if __name__ == "__main__":
                         type=int, 
                         default=None, 
                         help="Number of worker processes/threads")
+    parser.add_argument("--check-interval", type=int, default=60,
+                       help="Interval in seconds to check for scheduled tasks (scheduler mode only)")
     
     args = parser.parse_args()
     
@@ -53,3 +57,8 @@ if __name__ == "__main__":
             worker_args.append(f"--concurrency={args.concurrency}")
             
         celery_app.worker_main(worker_args)
+
+    elif args.mode == "scheduler":
+        
+        from scheduler import run_scheduler
+        run_scheduler(args)

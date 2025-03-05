@@ -1,7 +1,4 @@
 import requests
-import json
-from pprint import pprint
-import argparse
 from _config import BASE_URL
 
 def fetch_schema(source_id, refresh=False):

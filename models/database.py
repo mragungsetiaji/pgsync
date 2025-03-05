@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON, UniqueConstraint, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
+import enum
 
 Base = declarative_base()
 
@@ -126,6 +127,48 @@ class SyncTable(Base):
             "batch_size": self.batch_size,
             "sync_interval": self.sync_interval,
             "last_synced_at": self.last_synced_at.isoformat() if self.last_synced_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+## Connection Settings
+class ScheduleType(enum.Enum):
+    MANUAL = "manual"
+    CRON = "cron"
+
+class ConnectionSettings(Base):
+    __tablename__ = "connection_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False, unique=True)
+    schedule_type = Column(Enum(ScheduleType), default=ScheduleType.MANUAL, nullable=False)
+    cron_expression = Column(String(100), nullable=True)  # Only used when schedule_type is CRON
+    timezone = Column(String(50), default="UTC", nullable=True)  # Timezone for CRON
+    is_active = Column(Boolean, default=True)
+    connection_state = Column(JSON, nullable=True)  # Any additional connection state info
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+    celery_task_id = Column(String(50), nullable=True)  # Store Celery task ID for tracking
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationship
+    source_db = relationship("SourceDatabase", backref="connection_settings")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "source_db_id": self.source_db_id,
+            "schedule_type": self.schedule_type.value,
+            "cron_expression": self.cron_expression,
+            "timezone": self.timezone,
+            "is_active": self.is_active,
+            "connection_state": self.connection_state,
+            "last_run_at": self.last_run_at.isoformat() if self.last_run_at else None,
+            "next_run_at": self.next_run_at.isoformat() if self.next_run_at else None,
+            "celery_task_id": self.celery_task_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

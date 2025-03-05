@@ -234,7 +234,7 @@ class Postgres:
                             indexes[idx_name]["columns"].append(col_name)
                         
                         # Get row count estimate
-                        cur.execute(f"SELECT reltuples::bigint FROM pg_class WHERE relname = %s", (table_name,))
+                        cur.execute("SELECT reltuples::bigint FROM pg_class WHERE relname = %s", (table_name,))
                         row_count = cur.fetchone()
                         estimated_row_count = int(row_count[0]) if row_count and row_count[0] else 0
                         
