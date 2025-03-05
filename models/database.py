@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -19,8 +19,9 @@ class SourceDatabase(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    
+
     extract_jobs = relationship("ExtractionJob", back_populates="source_db", cascade="all, delete-orphan")
+    schema_versions = relationship("SchemaVersion", back_populates="source_db", cascade="all, delete-orphan")
     
     def to_dict(self):
         return {
@@ -33,6 +34,29 @@ class SourceDatabase(Base):
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+class SchemaVersion(Base):
+    __tablename__ = "schema_versions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False)
+    schema = Column(JSON, nullable=False)  # The schema in JSON format
+    hash = Column(String(64), nullable=False)  # Hash of the schema for quick comparison
+    version = Column(Integer, nullable=False)  # Version number
+    is_current = Column(Boolean, default=True)  # Whether this is the current schema
+    created_at = Column(DateTime, server_default=func.now())
+
+    source_db = relationship("SourceDatabase", back_populates="schema_versions")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "source_db_id": self.source_db_id,
+            "version": self.version,
+            "is_current": self.is_current,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "schema": self.schema
         }
     
 class ExtractionJob(Base):

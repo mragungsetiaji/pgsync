@@ -1,6 +1,11 @@
 Generic single-database configuration.
 
 ## Run Migrations
+
 ```bash
+# Update schema
+uv run alembic revision --autogenerate -m "add_schema_version_table"
+
+# Apply
 uv run alembic upgrade head
 ```
