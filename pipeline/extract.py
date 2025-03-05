@@ -1,9 +1,8 @@
 import os
 import json
-import time
 import asyncio
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 import psycopg
 from queue import Queue
 import threading
@@ -208,7 +207,7 @@ async def process_job(extractor: DataExtractor, job: ExtractJob) -> None:
         active_jobs[job.id] = job
         
         # Execute the extraction
-        success = await extractor.extract_incremental(job)
+        await extractor.extract_incremental(job)
         
         # Move to completed jobs
         if job.id in active_jobs:

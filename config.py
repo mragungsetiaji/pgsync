@@ -1,17 +1,10 @@
 from dotenv import load_dotenv
-from source.postgres import Postgres
 import os
 
 load_dotenv()
 
-# Database dependency
-def get_db():
-    # Get database connection info from environment variables
-    db = Postgres(
-        host=os.getenv("PG_HOST", ""),
-        port=int(os.getenv("PG_PORT", "")),
-        database=os.getenv("PG_DATABASE", ""),
-        user=os.getenv("PG_USER", ""),
-        password=os.getenv("PG_PASSWORD", "")
-    )
-    return db
+PG_HOST=os.getenv("PG_HOST", "")
+PG_PORT=int(os.getenv("PG_PORT", ""))
+PG_DATABASE=os.getenv("PG_DATABASE", "")
+PG_USER=os.getenv("PG_USER", "")
+PG_PASSWORD=os.getenv("PG_PASSWORD", "")

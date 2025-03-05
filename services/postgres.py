@@ -1,5 +1,5 @@
 import psycopg
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Tuple, Any
 
 
 class Postgres:

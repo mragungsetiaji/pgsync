@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List
 
 from models.database import SourceDatabase, ExtractionJob
 from session_manager import get_db_session
 from models.api import ExtractJobCreate, ExtractJobResponse, StatusResponse
 
-from pipeline.extract import add_extract_job, get_job_status, list_jobs
-from source.postgres import Postgres
+from pipeline.extract import add_extract_job, get_job_status
+from services.postgres import Postgres
 
 router = APIRouter(
     prefix="/extractions",

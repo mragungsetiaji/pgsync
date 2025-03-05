@@ -11,7 +11,7 @@ from models.api import (
     TestConnectionRequest,
     StatusResponse
 )
-from source.postgres import Postgres
+from services.postgres import Postgres
 
 router = APIRouter(
     prefix="/sources",
