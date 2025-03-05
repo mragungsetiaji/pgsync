@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 
 # Models for request and response
@@ -99,3 +99,31 @@ class TestConnectionRequest(BaseModel):
 class StatusResponse(BaseModel):
     status: str
     message: str
+
+# sync-tables
+class SyncTableCreate(BaseModel):
+    source_db_id: int
+    table_name: str
+    cursor_column: str
+    is_active: bool = True
+    batch_size: int = Field(1000, ge=100, le=10000)
+    sync_interval: int = Field(60, ge=5, le=1440)  # 5 min to 24 hours
+
+class SyncTableUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    cursor_column: Optional[str] = None
+    batch_size: Optional[int] = Field(None, ge=100, le=10000)
+    sync_interval: Optional[int] = Field(None, ge=5, le=1440)
+
+class SyncTableResponse(BaseModel):
+    id: int
+    source_db_id: int
+    source_db_name: str
+    table_name: str
+    is_active: bool
+    cursor_column: str
+    batch_size: int
+    sync_interval: int
+    last_synced_at: Optional[str] = None
+    created_at: str
+    updated_at: str

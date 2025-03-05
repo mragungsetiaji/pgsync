@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -22,7 +22,7 @@ class SourceDatabase(Base):
 
     extract_jobs = relationship("ExtractionJob", back_populates="source_db", cascade="all, delete-orphan")
     schema_versions = relationship("SchemaVersion", back_populates="source_db", cascade="all, delete-orphan")
-    
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -89,6 +89,43 @@ class ExtractionJob(Base):
             "error": self.error,
             "total_records": self.total_records,
             "extracted_records": self.extracted_records,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+class SyncTable(Base):
+    """Model to track which tables should be synced"""
+    __tablename__ = "sync_tables"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False)
+    table_name = Column(String(100), nullable=False)
+    is_active = Column(Boolean, default=True)
+    cursor_column = Column(String(100), nullable=False)  # Column to use for incremental syncing
+    batch_size = Column(Integer, default=1000)
+    sync_interval = Column(Integer, default=60)  # In minutes, how often to sync
+    last_synced_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # Ensure source_db_id + table_name is unique
+    __table_args__ = (
+        UniqueConstraint('source_db_id', 'table_name', name='uix_sync_table'),
+    )
+    
+    # Relationships
+    source_db = relationship("SourceDatabase", backref="sync_tables")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "source_db_id": self.source_db_id,
+            "table_name": self.table_name,
+            "is_active": self.is_active,
+            "cursor_column": self.cursor_column,
+            "batch_size": self.batch_size,
+            "sync_interval": self.sync_interval,
+            "last_synced_at": self.last_synced_at.isoformat() if self.last_synced_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
