@@ -1,0 +1,6 @@
+Generic single-database configuration.
+
+## Run Migrations
+```bash
+uv run alembic upgrade head
+```
