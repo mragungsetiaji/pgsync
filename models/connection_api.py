@@ -7,7 +7,7 @@ class ScheduleTypeEnum(str, Enum):
     MANUAL = "manual"
     CRON = "cron"
 
-class ConnectionSettingsCreate(BaseModel):
+class ConnectionCreate(BaseModel):
     """Model for creating connection settings"""
     name: str = Field(..., min_length=1, max_length=100)
     schedule_type: ScheduleTypeEnum = ScheduleTypeEnum.MANUAL
@@ -30,7 +30,7 @@ class ConnectionSettingsCreate(BaseModel):
         
         return value
 
-class ConnectionSettingsUpdate(BaseModel):
+class ConnectionUpdate(BaseModel):
     """Model for updating connection settings"""
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     schedule_type: Optional[ScheduleTypeEnum] = None
@@ -49,7 +49,7 @@ class ConnectionSettingsUpdate(BaseModel):
         
         return value
 
-class ConnectionSettingsResponse(BaseModel):
+class ConnectionResponse(BaseModel):
     """Response model for connection settings"""
     id: int
     name: str

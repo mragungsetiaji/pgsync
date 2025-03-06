@@ -4,18 +4,18 @@ from typing import List
 from datetime import datetime
 from croniter import croniter
 
-from models.database import ConnectionSettings, ScheduleType
+from models.database import Connection, SourceDatabase, Destination, ScheduleType
 from session_manager import get_db_session
-from models.api import (
-    ConnectionSettingsCreate,
-    ConnectionSettingsUpdate,
-    ConnectionSettingsResponse,
-    StatusResponse
+from models.connection_api import (
+    ConnectionCreate,
+    ConnectionUpdate,
+    ConnectionResponse
 )
+from models.api import StatusResponse
 
 router = APIRouter(
-    prefix="/connection-settings",
-    tags=["Connection Settings"]
+    prefix="/connections",
+    tags=["Connections"]
 )
 
 def calculate_next_run(cron_expression: str, timezone: str = "UTC") -> datetime:
@@ -32,25 +32,25 @@ def calculate_next_run(cron_expression: str, timezone: str = "UTC") -> datetime:
     
     return next_run
 
-@router.post("/", response_model=ConnectionSettingsResponse)
-def create_connection_settings(
-    settings_data: ConnectionSettingsCreate, 
+@router.post("/", response_model=ConnectionResponse)
+def create_connection(
+    data: ConnectionCreate, 
     db: Session = Depends(get_db_session)
 ):
-    """Create new connection settings"""
+    """Create new connection"""
     
     # Convert enum from API to database model
     schedule_type = ScheduleType.MANUAL
-    if settings_data.schedule_type == "cron":
+    if data.schedule_type == "cron":
         schedule_type = ScheduleType.CRON
     
     # Calculate next run time for cron schedules
     next_run_at = None
-    if schedule_type == ScheduleType.CRON and settings_data.cron_expression:
+    if schedule_type == ScheduleType.CRON and data.cron_expression:
         try:
             next_run_at = calculate_next_run(
-                settings_data.cron_expression, 
-                settings_data.timezone
+                data.cron_expression, 
+                data.timezone
             )
         except Exception as e:
             raise HTTPException(
@@ -59,13 +59,13 @@ def create_connection_settings(
             )
     
     # Create connection settings
-    conn_settings = ConnectionSettings(
-        name=settings_data.name,
+    conn_settings = Connection(
+        name=data.name,
         schedule_type=schedule_type,
-        cron_expression=settings_data.cron_expression,
-        timezone=settings_data.timezone,
-        is_active=settings_data.is_active,
-        connection_state=settings_data.connection_state,
+        cron_expression=data.cron_expression,
+        timezone=data.timezone,
+        is_active=data.is_active,
+        connection_state=data.connection_state,
         next_run_at=next_run_at
     )
     
@@ -75,52 +75,52 @@ def create_connection_settings(
     
     return conn_settings.to_dict()
 
-@router.get("/", response_model=List[ConnectionSettingsResponse])
-def list_connection_settings(
+@router.get("/", response_model=List[ConnectionResponse])
+def list_connection(
     active_only: bool = False,
     skip: int = 0, 
     limit: int = 100, 
     db: Session = Depends(get_db_session)
 ):
-    """List all connection settings"""
-    query = db.query(ConnectionSettings)
+    """List all connection"""
+    query = db.query(Connection)
     
     if active_only:
-        query = query.filter(ConnectionSettings.is_active == True)
+        query = query.filter(Connection.is_active == True)
     
     settings = query.offset(skip).limit(limit).all()
     return [s.to_dict() for s in settings]
 
-@router.get("/{settings_id}", response_model=ConnectionSettingsResponse)
-def get_connection_settings(settings_id: int, db: Session = Depends(get_db_session)):
-    """Get specific connection settings"""
-    settings = db.query(ConnectionSettings).filter(ConnectionSettings.id == settings_id).first()
+@router.get("/{id}", response_model=ConnectionResponse)
+def get_connection(id: int, db: Session = Depends(get_db_session)):
+    """Get specific connection"""
+    settings = db.query(Connection).filter(Connection.id == id).first()
     
     if not settings:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Connection settings with ID {settings_id} not found"
+            detail=f"Connection with ID {id} not found"
         )
     
     return settings.to_dict()
 
-@router.put("/{settings_id}", response_model=ConnectionSettingsResponse)
-def update_connection_settings(
-    settings_id: int, 
-    settings_data: ConnectionSettingsUpdate, 
+@router.put("/{id}", response_model=ConnectionResponse)
+def update_connection(
+    id: int, 
+    data: ConnectionUpdate, 
     db: Session = Depends(get_db_session)
 ):
-    """Update connection settings"""
-    settings = db.query(ConnectionSettings).filter(ConnectionSettings.id == settings_id).first()
+    """Update connections"""
+    settings = db.query(Connection).filter(Connection.id == id).first()
     
     if not settings:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Connection settings with ID {settings_id} not found"
+            detail=f"Connections with ID {id} not found"
         )
     
     # Update only fields that were provided
-    update_data = settings_data.dict(exclude_unset=True)
+    update_data = data.model_dump(exclude_unset=True)
     
     # Handle special case for schedule_type
     if "schedule_type" in update_data:
@@ -152,41 +152,41 @@ def update_connection_settings(
     
     return settings.to_dict()
 
-@router.delete("/{settings_id}", response_model=StatusResponse)
-def delete_connection_settings(settings_id: int, db: Session = Depends(get_db_session)):
-    """Delete connection settings"""
-    settings = db.query(ConnectionSettings).filter(ConnectionSettings.id == settings_id).first()
+@router.delete("/{id}", response_model=StatusResponse)
+def delete_connection(id: int, db: Session = Depends(get_db_session)):
+    """Delete connection"""
+    connection_data = db.query(Connection).filter(Connection.id == id).first()
     
-    if not settings:
+    if not connection_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Connection settings with ID {settings_id} not found"
+            detail=f"Connection with ID {id} not found"
         )
     
-    db.delete(settings)
+    db.delete(connection_data)
     db.commit()
     
     return {
         "status": "success",
-        "message": f"Connection settings '{settings.name}' deleted successfully"
+        "message": f"Connection '{connection_data.name}' deleted successfully"
     }
 
-@router.post("/{settings_id}/toggle", response_model=StatusResponse)
-def toggle_connection_active(settings_id: int, db: Session = Depends(get_db_session)):
-    """Toggle connection settings active status"""
-    settings = db.query(ConnectionSettings).filter(ConnectionSettings.id == settings_id).first()
+@router.post("/{id}/toggle", response_model=StatusResponse)
+def toggle_connection_active(id: int, db: Session = Depends(get_db_session)):
+    """Toggle connection active status"""
+    connections = db.query(Connection).filter(Connection.id == id).first()
     
-    if not settings:
+    if not connections:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Connection settings with ID {settings_id} not found"
+            detail=f"Connection settings with ID {id} not found"
         )
     
-    settings.is_active = not settings.is_active
+    connections.is_active = not connections.is_active
     db.commit()
     
-    status_text = "activated" if settings.is_active else "deactivated"
+    status_text = "activated" if connections.is_active else "deactivated"
     return {
         "status": "success",
-        "message": f"Connection '{settings.name}' has been {status_text}"
+        "message": f"Connection '{connections.name}' has been {status_text}"
     }

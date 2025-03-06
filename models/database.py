@@ -23,6 +23,7 @@ class SourceDatabase(Base):
 
     extract_jobs = relationship("ExtractionJob", back_populates="source_db", cascade="all, delete-orphan")
     schema_versions = relationship("SchemaVersion", back_populates="source_db", cascade="all, delete-orphan")
+    connections = relationship("Connection", back_populates="source_db")
 
     def to_dict(self):
         return {
@@ -131,17 +132,57 @@ class SyncTable(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
     
+class Destination(Base):
+    """Model for storing destination configurations"""
+    __tablename__ = "destinations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    
+    project_id = Column(String(100), nullable=False)
+    dataset = Column(String(100), nullable=False)
+    credentials = Column(Text, nullable=False)
+
+    bucket_name = Column(String(100), nullable=False)
+    folder_path = Column(String(255), nullable=True)
+    hmac_key = Column(String(255), nullable=False)
+    hmac_secret = Column(String(255), nullable=False)
+
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    connections = relationship("Connection", back_populates="destination")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "type": self.type,
+            "project_id": self.project_id,
+            "dataset": self.dataset,
+            "bucket_name": self.bucket_name,
+            "folder_path": self.folder_path,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+    
 ## Connection Settings
 class ScheduleType(enum.Enum):
     MANUAL = "manual"
     CRON = "cron"
 
-class ConnectionSettings(Base):
-    __tablename__ = "connection_settings"
+class Connection(Base):
+    """Model for storing connections between sources and destinations"""
+    __tablename__ = "connections"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
     source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False, unique=True)
+    destination_id = Column(Integer, ForeignKey("destinations.id"), nullable=False)
     schedule_type = Column(Enum(ScheduleType), default=ScheduleType.MANUAL, nullable=False)
     cron_expression = Column(String(100), nullable=True)  # Only used when schedule_type is CRON
     timezone = Column(String(50), default="UTC", nullable=True)  # Timezone for CRON
@@ -154,13 +195,15 @@ class ConnectionSettings(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationship
-    source_db = relationship("SourceDatabase", backref="connection_settings")
+    source_db = relationship("SourceDatabase", backref="connections")
+    destination = relationship("Destination", back_populates="connections")
     
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "source_db_id": self.source_db_id,
+            "destination_id": self.destination_id,
             "schedule_type": self.schedule_type.value,
             "cron_expression": self.cron_expression,
             "timezone": self.timezone,
