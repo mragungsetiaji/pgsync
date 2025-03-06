@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 
-from models.database import SyncTable, SourceDatabase, SchemaVersion
+from models.database import SyncTable, Source, SchemaVersion
 from session_manager import get_db_session
 from models.api import StatusResponse, SyncTableCreate, SyncTableResponse, SyncTableUpdate
 from services.postgres import Postgres
@@ -18,7 +18,7 @@ router = APIRouter(
 def create_sync_table(table_data: SyncTableCreate, db: Session = Depends(get_db_session)):
     """Add a table to be synced"""
     # Check if source database exists
-    source_db = db.query(SourceDatabase).filter(SourceDatabase.id == table_data.source_db_id).first()
+    source_db = db.query(Source).filter(Source.id == table_data.source_db_id).first()
     if not source_db:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -95,8 +95,8 @@ def list_sync_tables(
     db: Session = Depends(get_db_session)
 ):
     """List all tables configured for syncing"""
-    query = db.query(SyncTable, SourceDatabase.name.label("source_db_name")) \
-              .join(SourceDatabase)
+    query = db.query(SyncTable, Source.name.label("source_db_name")) \
+              .join(Source)
     
     # Filter by source database if provided
     if source_db_id is not None:
@@ -121,8 +121,8 @@ def list_sync_tables(
 @router.get("/{sync_table_id}", response_model=SyncTableResponse)
 def get_sync_table(sync_table_id: int, db: Session = Depends(get_db_session)):
     """Get a specific sync table configuration"""
-    result = db.query(SyncTable, SourceDatabase.name.label("source_db_name")) \
-               .join(SourceDatabase) \
+    result = db.query(SyncTable, Source.name.label("source_db_name")) \
+               .join(Source) \
                .filter(SyncTable.id == sync_table_id) \
                .first()
     
@@ -141,8 +141,8 @@ def get_sync_table(sync_table_id: int, db: Session = Depends(get_db_session)):
 @router.put("/{sync_table_id}", response_model=SyncTableResponse)
 def update_sync_table(sync_table_id: int, table_data: SyncTableUpdate, db: Session = Depends(get_db_session)):
     """Update a sync table configuration"""
-    result = db.query(SyncTable, SourceDatabase) \
-               .join(SourceDatabase) \
+    result = db.query(SyncTable, Source) \
+               .join(Source) \
                .filter(SyncTable.id == sync_table_id) \
                .first()
     

@@ -5,7 +5,7 @@ import pytz
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from config import DATABASE_URL
-from models.database import Connection, ScheduleType, SyncTable, SourceDatabase
+from models.database import Connection, ScheduleType, SyncTable, Source
 from datetime import datetime
 from croniter import croniter
 from pipeline.extract import add_extract_job
@@ -57,8 +57,8 @@ def run_scheduler(args):
                             # Process each source database
                             for source_db_id, tables in tables_by_source.items():
                                 # Get source db connection info
-                                source_db = db.query(SourceDatabase)\
-                                    .filter(SourceDatabase.id == source_db_id)\
+                                source_db = db.query(Source)\
+                                    .filter(Source.id == source_db_id)\
                                     .first()
                                 
                                 if not source_db:

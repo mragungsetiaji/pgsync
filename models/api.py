@@ -37,7 +37,7 @@ class JobResponse(BaseModel):
     updated_at: str
 
 # Source database models
-class SourceDatabaseCreate(BaseModel):
+class SourceCreate(BaseModel):
     name: str
     host: str
     port: int = 5432
@@ -45,7 +45,7 @@ class SourceDatabaseCreate(BaseModel):
     user: str
     password: str
 
-class SourceDatabaseUpdate(BaseModel):
+class SourceUpdate(BaseModel):
     name: Optional[str] = None
     host: Optional[str] = None
     port: Optional[int] = None
@@ -54,7 +54,7 @@ class SourceDatabaseUpdate(BaseModel):
     password: Optional[str] = None
     is_active: Optional[bool] = None
 
-class SourceDatabaseResponse(BaseModel):
+class SourceResponse(BaseModel):
     id: int
     name: str
     host: str

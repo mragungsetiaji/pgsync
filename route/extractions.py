@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from models.database import SourceDatabase, ExtractionJob
+from models.database import Source, ExtractionJob
 from session_manager import get_db_session
 from models.api import ExtractJobCreate, ExtractJobResponse, StatusResponse
 
@@ -18,7 +18,7 @@ router = APIRouter(
 def create_extraction_job(job_data: ExtractJobCreate, db: Session = Depends(get_db_session)):
     """Create a new extraction job"""
     # Check if source database exists
-    source_db = db.query(SourceDatabase).filter(SourceDatabase.id == job_data.source_db_id).first()
+    source_db = db.query(Source).filter(Source.id == job_data.source_db_id).first()
     if not source_db:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

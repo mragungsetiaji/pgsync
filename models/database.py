@@ -7,8 +7,8 @@ import enum
 
 Base = declarative_base()
 
-class SourceDatabase(Base):
-    __tablename__ = "source_databases"
+class Source(Base):
+    __tablename__ = "sources"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
@@ -21,9 +21,9 @@ class SourceDatabase(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    extract_jobs = relationship("ExtractionJob", back_populates="source_db", cascade="all, delete-orphan")
-    schema_versions = relationship("SchemaVersion", back_populates="source_db", cascade="all, delete-orphan")
-    connections = relationship("Connection", back_populates="source_db")
+    extract_jobs = relationship("ExtractionJob", back_populates="source", cascade="all, delete-orphan")
+    schema_versions = relationship("SchemaVersion", back_populates="source", cascade="all, delete-orphan")
+    connections = relationship("Connection", back_populates="source")
 
     def to_dict(self):
         return {
@@ -42,19 +42,19 @@ class SchemaVersion(Base):
     __tablename__ = "schema_versions"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False)
+    source_id = Column(Integer, ForeignKey("sources.id"), nullable=False)
     schema = Column(JSON, nullable=False)  # The schema in JSON format
     hash = Column(String(64), nullable=False)  # Hash of the schema for quick comparison
     version = Column(Integer, nullable=False)  # Version number
     is_current = Column(Boolean, default=True)  # Whether this is the current schema
     created_at = Column(DateTime, server_default=func.now())
 
-    source_db = relationship("SourceDatabase", back_populates="schema_versions")
+    source_db = relationship("Source", back_populates="schema_versions")
     
     def to_dict(self):
         return {
             "id": self.id,
-            "source_db_id": self.source_db_id,
+            "source_id": self.source_id,
             "version": self.version,
             "is_current": self.is_current,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -65,7 +65,7 @@ class ExtractionJob(Base):
     __tablename__ = "extraction_jobs"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False)
+    source_id = Column(Integer, ForeignKey("sources.id"), nullable=False)
     table_name = Column(String(100), nullable=False)
     cursor_column = Column(String(100), nullable=False)
     cursor_value = Column(Text, nullable=True)
@@ -77,12 +77,12 @@ class ExtractionJob(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
-    source_db = relationship("SourceDatabase", back_populates="extract_jobs")
+    source = relationship("Source", back_populates="extract_jobs")
     
     def to_dict(self):
         return {
             "id": self.id,
-            "source_db_id": self.source_db_id,
+            "source_id": self.source_id,
             "table_name": self.table_name,
             "cursor_column": self.cursor_column,
             "cursor_value": self.cursor_value,
@@ -100,7 +100,7 @@ class SyncTable(Base):
     __tablename__ = "sync_tables"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False)
+    source_id = Column(Integer, ForeignKey("sources.id"), nullable=False)
     table_name = Column(String(100), nullable=False)
     is_active = Column(Boolean, default=True)
     cursor_column = Column(String(100), nullable=False)  # Column to use for incremental syncing
@@ -112,16 +112,16 @@ class SyncTable(Base):
     
     # Ensure source_db_id + table_name is unique
     __table_args__ = (
-        UniqueConstraint('source_db_id', 'table_name', name='uix_sync_table'),
+        UniqueConstraint('source_id', 'table_name', name='uix_sync_table'),
     )
     
     # Relationships
-    source_db = relationship("SourceDatabase", backref="sync_tables")
+    source = relationship("Source", backref="sync_tables")
     
     def to_dict(self):
         return {
             "id": self.id,
-            "source_db_id": self.source_db_id,
+            "source_id": self.source_id,
             "table_name": self.table_name,
             "is_active": self.is_active,
             "cursor_column": self.cursor_column,
@@ -181,7 +181,7 @@ class Connection(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
-    source_db_id = Column(Integer, ForeignKey("source_databases.id"), nullable=False, unique=True)
+    source_id = Column(Integer, ForeignKey("sources.id"), nullable=False, unique=True)
     destination_id = Column(Integer, ForeignKey("destinations.id"), nullable=False)
     schedule_type = Column(Enum(ScheduleType), default=ScheduleType.MANUAL, nullable=False)
     cron_expression = Column(String(100), nullable=True)  # Only used when schedule_type is CRON
@@ -195,14 +195,14 @@ class Connection(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationship
-    source_db = relationship("SourceDatabase", backref="connections")
+    source = relationship("Source", backref="connections")
     destination = relationship("Destination", back_populates="connections")
     
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
-            "source_db_id": self.source_db_id,
+            "source_id": self.source_id,
             "destination_id": self.destination_id,
             "schedule_type": self.schedule_type.value,
             "cron_expression": self.cron_expression,

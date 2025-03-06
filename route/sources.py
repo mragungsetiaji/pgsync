@@ -6,12 +6,12 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from sqlalchemy import desc
 
-from models.database import SourceDatabase, SchemaVersion
+from models.database import Source, SchemaVersion
 from session_manager import get_db_session
 from models.api import (
-    SourceDatabaseCreate, 
-    SourceDatabaseUpdate, 
-    SourceDatabaseResponse,
+    SourceCreate, 
+    SourceUpdate, 
+    SourceResponse,
     TestConnectionRequest,
     StatusResponse
 )
@@ -19,12 +19,12 @@ from services.postgres import Postgres
 
 router = APIRouter(
     prefix="/sources",
-    tags=["Source Databases"]
+    tags=["Sources"]
 )
 
-@router.post("/", response_model=SourceDatabaseResponse)
-def create_source_db(db_data: SourceDatabaseCreate, db: Session = Depends(get_db_session)):
-    """Create a new source database connection"""
+@router.post("/", response_model=SourceResponse)
+def create_source_db(db_data: SourceCreate, db: Session = Depends(get_db_session)):
+    """Create a new Source connection"""
     # Test the connection first
     postgres = Postgres(
         host=db_data.host,
@@ -41,7 +41,7 @@ def create_source_db(db_data: SourceDatabaseCreate, db: Session = Depends(get_db
         )
     
     # Create the database entry
-    db_obj = SourceDatabase(
+    db_obj = Source(
         name=db_data.name,
         host=db_data.host,
         port=db_data.port,
@@ -56,31 +56,31 @@ def create_source_db(db_data: SourceDatabaseCreate, db: Session = Depends(get_db
     
     return db_obj.to_dict()
 
-@router.get("/", response_model=List[SourceDatabaseResponse])
+@router.get("/", response_model=List[SourceResponse])
 def get_source_dbs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db_session)):
-    """Get all source database connections"""
-    sources = db.query(SourceDatabase).offset(skip).limit(limit).all()
+    """Get all Source connections"""
+    sources = db.query(Source).offset(skip).limit(limit).all()
     return [source.to_dict() for source in sources]
 
-@router.get("/{source_id}", response_model=SourceDatabaseResponse)
+@router.get("/{source_id}", response_model=SourceResponse)
 def get_source_db(source_id: int, db: Session = Depends(get_db_session)):
-    """Get a specific source database connection"""
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    """Get a specific Source connection"""
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     return db_obj.to_dict()
 
-@router.put("/{source_id}", response_model=SourceDatabaseResponse)
-def update_source_db(source_id: int, db_data: SourceDatabaseUpdate, db: Session = Depends(get_db_session)):
-    """Update a source database connection"""
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+@router.put("/{source_id}", response_model=SourceResponse)
+def update_source_db(source_id: int, db_data: SourceUpdate, db: Session = Depends(get_db_session)):
+    """Update a Source connection"""
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     # Update attributes that were provided
@@ -95,18 +95,18 @@ def update_source_db(source_id: int, db_data: SourceDatabaseUpdate, db: Session 
 
 @router.delete("/{source_id}", response_model=StatusResponse)
 def delete_source_db(source_id: int, db: Session = Depends(get_db_session)):
-    """Delete a source database connection"""
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    """Delete a Source connection"""
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     db.delete(db_obj)
     db.commit()
     
-    return {"status": "success", "message": f"Source database with ID {source_id} deleted successfully"}
+    return {"status": "success", "message": f"Source with ID {source_id} deleted successfully"}
 
 @router.post("/test-connection", response_model=StatusResponse)
 def test_connection(conn_data: TestConnectionRequest):
@@ -129,12 +129,12 @@ def test_connection(conn_data: TestConnectionRequest):
 
 @router.get("/{source_id}/tables", response_model=List[str])
 def get_source_tables(source_id: int, db: Session = Depends(get_db_session)):
-    """Get all tables from a source database"""
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    """Get all tables from a Source"""
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     postgres = Postgres(
@@ -150,12 +150,12 @@ def get_source_tables(source_id: int, db: Session = Depends(get_db_session)):
 
 @router.get("/{source_id}/tables/{table_name}/columns")
 def get_source_table_columns(source_id: int, table_name: str, db: Session = Depends(get_db_session)):
-    """Get columns for a specific table in a source database"""
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    """Get columns for a specific table in a Source"""
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     postgres = Postgres(
@@ -170,20 +170,20 @@ def get_source_table_columns(source_id: int, table_name: str, db: Session = Depe
     if not columns:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Table '{table_name}' not found in source database"
+            detail=f"Table '{table_name}' not found in Source"
         )
     
     return columns
 
 @router.post("/{source_id}/schema", response_model=StatusResponse)
 def fetch_and_store_schema(source_id: int, db: Session = Depends(get_db_session)):
-    """Fetch the schema from a source database and store it as a new version"""
-    # Get source database
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    """Fetch the schema from a Source and store it as a new version"""
+    # Get Source
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     # Initialize Postgres connection
@@ -262,19 +262,19 @@ def get_source_schema(
     db: Session = Depends(get_db_session)
 ):
     """
-    Get the schema for a source database
+    Get the schema for a Source
     
     Args:
-        source_id: ID of the source database
+        source_id: ID of the Source
         version: Specific version to fetch (default: current version)
         refresh: Whether to refresh the schema from the database (default: False)
     """
-    # Get source database
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    # Get Source
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     # If refresh is requested, fetch new schema
@@ -295,7 +295,7 @@ def get_source_schema(
         if not schema_version:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Schema version {version} not found for source database ID {source_id}"
+                detail=f"Schema version {version} not found for Source ID {source_id}"
             )
         
     else:
@@ -308,7 +308,7 @@ def get_source_schema(
             else:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No schema available for source database ID {source_id}"
+                    detail=f"No schema available for Source ID {source_id}"
                 )
             
     # Return schema with version info
@@ -327,13 +327,13 @@ def get_schema_versions(
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db_session)
 ):
-    """Get all schema versions for a source database"""
-    # Check if source database exists
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    """Get all schema versions for a Source"""
+    # Check if Source exists
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     # Get all schema versions without the full schema JSON (for performance)
@@ -370,16 +370,16 @@ def compare_schema_versions(
     Compare two schema versions and return differences
     
     Args:
-        source_id: ID of the source database
+        source_id: ID of the Source
         version1: First version to compare
         version2: Second version to compare
     """
-    # Check if source database exists
-    db_obj = db.query(SourceDatabase).filter(SourceDatabase.id == source_id).first()
+    # Check if Source exists
+    db_obj = db.query(Source).filter(Source.id == source_id).first()
     if not db_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Source database with ID {source_id} not found"
+            detail=f"Source with ID {source_id} not found"
         )
     
     # Get both schema versions
@@ -396,13 +396,13 @@ def compare_schema_versions(
     if not schema1:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Schema version {version1} not found for source database ID {source_id}"
+            detail=f"Schema version {version1} not found for Source ID {source_id}"
         )
     
     if not schema2:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Schema version {version2} not found for source database ID {source_id}"
+            detail=f"Schema version {version2} not found for Source ID {source_id}"
         )
     
     # Calculate schema differences

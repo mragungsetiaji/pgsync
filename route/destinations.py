@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
 
-from models.database import Destination, Connection, SourceDatabase
+from models.database import Destination, Connection, Source
 from session_manager import get_db_session
 from models.destination_api import (
     DestinationCreate,
