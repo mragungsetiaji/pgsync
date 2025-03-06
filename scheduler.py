@@ -5,7 +5,7 @@ import pytz
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from config import DATABASE_URL
-from models.database import ConnectionSettings, ScheduleType, SyncTable, SourceDatabase
+from models.database import Connection, ScheduleType, SyncTable, SourceDatabase
 from datetime import datetime
 from croniter import croniter
 from pipeline.extract import add_extract_job
@@ -24,8 +24,8 @@ def run_scheduler(args):
             try:
                 logger.info("Checking for scheduled tasks...")
                 # Get active connection settings
-                active_settings = db.query(ConnectionSettings)\
-                    .filter(ConnectionSettings.is_active == True)\
+                active_settings = db.query(Connection)\
+                    .filter(Connection.is_active == True)\
                     .all()
                 
                 current_time = datetime.now()
