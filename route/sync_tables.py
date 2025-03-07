@@ -6,7 +6,7 @@ from typing import List, Optional
 from models.database import SyncTable, Source, SchemaVersion
 from session_manager import get_db_session
 from models.api import StatusResponse, SyncTableCreate, SyncTableResponse, SyncTableUpdate
-from services.postgres import Postgres
+from connector.postgres_source import PostgresSource
 
 router = APIRouter(
     prefix="/sync-tables",
@@ -156,7 +156,7 @@ def update_sync_table(sync_table_id: int, table_data: SyncTableUpdate, db: Sessi
     
     # If updating cursor column, validate it exists in the table
     if table_data.cursor_column is not None:
-        postgres = Postgres(
+        source = PostgresSource(
             host=source_db.host,
             port=source_db.port,
             database=source_db.database,
@@ -164,7 +164,7 @@ def update_sync_table(sync_table_id: int, table_data: SyncTableUpdate, db: Sessi
             password=source_db.password
         )
         
-        columns = postgres.fetch_columns(sync_table.table_name)
+        columns = source.fetch_columns(sync_table.table_name)
         column_names = [col["name"] for col in columns]
         
         if table_data.cursor_column not in column_names:
