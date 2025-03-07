@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field, field_validator
 from models.database import ScheduleType

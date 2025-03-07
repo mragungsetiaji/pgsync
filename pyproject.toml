@@ -21,7 +21,11 @@ dependencies = [
 ]
 
 [tool.ruff.lint]
-ignore = ["F811", "E712"]
+ignore = [
+    "F811", 
+    "E712",
+    "F841" # Local variable is assigned to but never used
+]
 
 [dependency-groups]
 dev = [
