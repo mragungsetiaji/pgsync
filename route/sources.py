@@ -15,7 +15,7 @@ from models.api import (
     TestConnectionRequest,
     StatusResponse
 )
-from services.postgres import Postgres
+from connector.postgres_source import PostgresSource
 
 router = APIRouter(
     prefix="/sources",
@@ -26,7 +26,7 @@ router = APIRouter(
 def create_source_db(db_data: SourceCreate, db: Session = Depends(get_db_session)):
     """Create a new Source connection"""
     # Test the connection first
-    postgres = Postgres(
+    postgres = PostgresSource(
         host=db_data.host,
         port=db_data.port,
         database=db_data.database,
@@ -111,7 +111,7 @@ def delete_source_db(source_id: int, db: Session = Depends(get_db_session)):
 @router.post("/test-connection", response_model=StatusResponse)
 def test_connection(conn_data: TestConnectionRequest):
     """Test a database connection without saving it"""
-    postgres = Postgres(
+    postgres = PostgresSource(
         host=conn_data.host,
         port=conn_data.port,
         database=conn_data.database,
@@ -137,7 +137,7 @@ def get_source_tables(source_id: int, db: Session = Depends(get_db_session)):
             detail=f"Source with ID {source_id} not found"
         )
     
-    postgres = Postgres(
+    postgres = PostgresSource(
         host=db_obj.host,
         port=db_obj.port,
         database=db_obj.database,
@@ -158,7 +158,7 @@ def get_source_table_columns(source_id: int, table_name: str, db: Session = Depe
             detail=f"Source with ID {source_id} not found"
         )
     
-    postgres = Postgres(
+    postgres = PostgresSource(
         host=db_obj.host,
         port=db_obj.port,
         database=db_obj.database,
@@ -187,7 +187,7 @@ def fetch_and_store_schema(source_id: int, db: Session = Depends(get_db_session)
         )
     
     # Initialize Postgres connection
-    postgres = Postgres(
+    postgres = PostgresSource(
         host=db_obj.host,
         port=db_obj.port,
         database=db_obj.database,

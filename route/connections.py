@@ -4,7 +4,7 @@ from typing import List
 from datetime import datetime
 from croniter import croniter
 
-from models.database import Connection, Source, Destination, ScheduleType
+from models.database import Connection, ScheduleType
 from session_manager import get_db_session
 from models.connection_api import (
     ConnectionCreate,

@@ -2,7 +2,7 @@ import psycopg
 from typing import List, Dict, Tuple, Any
 
 
-class Postgres:
+class PostgresSource:
     """
     A class to handle PostgreSQL database connections and operations using psycopg3.
     """

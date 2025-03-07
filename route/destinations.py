@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
-import json
+from typing import List
 
-from models.database import Destination, Connection, Source
+from models.database import Destination, Connection
 from session_manager import get_db_session
 from models.destination_api import (
     DestinationCreate,
