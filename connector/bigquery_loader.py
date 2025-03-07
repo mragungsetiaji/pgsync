@@ -1,6 +1,5 @@
 import os
 import json
-import logging
 import tempfile
 from google.cloud import storage
 from core.base import BaseLoader
