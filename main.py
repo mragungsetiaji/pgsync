@@ -53,7 +53,7 @@ if __name__ == "__main__":
     
     elif args.mode == "worker":
 
-        from pipeline.extract import celery_app
+        from worker.celery_app import celery_app
         worker_args = ["worker", f"--loglevel={args.loglevel}"]
         if args.concurrency:
             worker_args.append(f"--concurrency={args.concurrency}")

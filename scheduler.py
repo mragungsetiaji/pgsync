@@ -8,7 +8,7 @@ from config import DATABASE_URL
 from models.database import Connection, ScheduleType, SyncTable, Source
 from datetime import datetime
 from croniter import croniter
-from pipeline.extract import add_extract_job
+from worker.tasks import add_extract_job
 from utils import logger
 
 # Create a database session

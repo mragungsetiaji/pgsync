@@ -11,7 +11,7 @@ from models.destination_api import (
     TestBigQueryConnectionRequest
 )
 from models.api import StatusResponse
-from services.bigquery import BigQueryDestination
+from connector.bigquery_destination import BigQueryDestination
 
 router = APIRouter(
     prefix="/destinations",
