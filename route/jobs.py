@@ -71,3 +71,51 @@ async def load_data(load_job: dict):
     except Exception as e:
         logger.error(f"Error creating load job: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/create")
+async def create_job(etl_job: dict):
+    """Create a combined extract-transform-load job"""
+    try:
+        from worker.tasks import add_etl_job
+        
+        # Validate required fields
+        required_fields = {
+            "source": ["table_name", "conn_params"],
+            "destination": ["type", "config", "dataset", "table"]
+        }
+        
+        for category, fields in required_fields.items():
+            if category not in etl_job:
+                raise HTTPException(status_code=400, detail=f"Missing '{category}' configuration")
+            
+            for field in fields:
+                if field not in etl_job[category]:
+                    raise HTTPException(status_code=400, detail=f"Missing '{field}' in {category} configuration")
+        
+        # Extract source fields
+        source = etl_job["source"]
+        destination = etl_job["destination"]
+        
+        # Create ETL job
+        job = add_etl_job(
+            source_db_id=source.get("id", "default"),
+            table_name=source["table_name"],
+            conn_params=source["conn_params"],
+            destination_config=destination["config"],
+            dataset=destination["dataset"],
+            table=destination["table"],
+            use_ctid=source.get("use_ctid", True),
+            cursor_column=source.get("cursor_column"),
+            cursor_value=source.get("cursor_value"),
+            batch_size=source.get("batch_size", 1000)
+        )
+        
+        return {
+            "message": "ETL job created successfully",
+            "job_id": job.id
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error creating ETL job: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

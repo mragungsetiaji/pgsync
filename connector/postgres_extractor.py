@@ -11,23 +11,28 @@ from worker.job_manager import update_job_status
 logger = logging.getLogger("extract")
 
 class PostgresExtractor(BaseExtractor):
-    def __init__(self, conn_params):
+    def __init__(self, conn_params, save_to_disk=True):
         super().__init__(conn_params)
         self.source = PostgresSource(**conn_params)
         self.output_dir = os.path.join(os.getcwd(), "data", "output")
-        os.makedirs(self.output_dir, exist_ok=True)
+        self.save_to_disk = save_to_disk
+        if self.save_to_disk:
+            os.makedirs(self.output_dir, exist_ok=True)
 
     def _validate_connection_params(self):
         self.source.check_connection()
 
     async def extract_incremental(self, job_dict):
         job = ExtractJob(**job_dict)
+        extracted_batches = []  # Store batches if not saving to disk
+
         try:
             job.status = "running"
             job.updated_at = datetime.now().isoformat()
             cursor_value = job.cursor_value if job.cursor_value else "(0,0)" if job.use_ctid else None
             has_more_data = True
             batch_num = 0
+
             while has_more_data:
                 batch_data, next_cursor_value = await self._extract_batch(
                     job.table_name, 
@@ -38,10 +43,18 @@ class PostgresExtractor(BaseExtractor):
                 )
                 if len(batch_data) < job.batch_size or next_cursor_value == cursor_value:
                     has_more_data = False
+
                 if batch_data:
                     batch_num += 1
-                    file_path = self._get_output_path(job.table_name, job.id, batch_num)
-                    self._save_to_json(batch_data, file_path)
+
+                    # Save data to disk if configured
+                    if self.save_to_disk:
+                        file_path = self._get_output_path(job.table_name, job.id, batch_num)
+                        self._save_to_json(batch_data, file_path)
+
+                    # Always keep data in memory for return
+                    extracted_batches.append(batch_data)
+
                     job.extracted_records += len(batch_data)
                     job.updated_at = datetime.now().isoformat()
                     job.cursor_value = next_cursor_value
@@ -49,17 +62,31 @@ class PostgresExtractor(BaseExtractor):
                     update_job_status(job)
                 else:
                     has_more_data = False
+
             job.status = "completed"
             job.updated_at = datetime.now().isoformat()
             update_job_status(job)
-            return True
+
+            # Return both status and extracted data
+            return {
+                "success": True,
+                "job_id": job.id,
+                "table_name": job.table_name,
+                "records_extracted": job.extracted_records,
+                "batches": extracted_batches
+            }
+        
         except Exception as e:
             logger.error(f"Error extracting data: {str(e)}")
             job.status = "failed"
             job.error = str(e)
             job.updated_at = datetime.now().isoformat()
             update_job_status(job)
-            return False
+            return {
+                "success": False,
+                "error": str(e),
+                "job_id": job.id
+            }
 
     async def _extract_batch(self, table_name, use_ctid, cursor_column, cursor_value, batch_size):
         if use_ctid:

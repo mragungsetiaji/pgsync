@@ -67,3 +67,21 @@ class Transformer(BaseTransformer):
         except Exception as e:
             self.logger.error(f"Error transforming batch from file {file_path}: {str(e)}")
             raise ValueError(f"Error transforming batch file: {str(e)}")
+        
+    def transform_batches(self, batches: List[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        """
+        Transform multiple batches of data.
+        
+        Args:
+            batches: List of data batches, where each batch is a list of records
+            
+        Returns:
+            List of all transformed records
+        """
+        all_transformed = []
+        for batch in batches:
+            transformed_batch = self.transform(batch)
+            all_transformed.extend(transformed_batch)
+            
+        self.logger.info(f"Transformed {len(all_transformed)} records from {len(batches)} batches")
+        return all_transformed

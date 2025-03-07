@@ -5,6 +5,7 @@ from route.extractions import router as extractions_router
 from route.sync_tables import router as sync_tables_router
 from route.connections import router as connections_router
 from route.destinations import router as destinations_router
+from route.jobs import router as jobs_router
 
 app = FastAPI(
     title="PostgreSQL Database Explorer",
@@ -18,6 +19,7 @@ app.include_router(extractions_router)
 app.include_router(sync_tables_router)
 app.include_router(connections_router)
 app.include_router(destinations_router)
+app.include_router(jobs_router)
 
 @app.get("/", response_model=StatusResponse)
 def root():

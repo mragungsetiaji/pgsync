@@ -15,13 +15,16 @@ from connector.bigquery_loader import BigQueryLoader
 logger = logging.getLogger("extract.tasks")
 
 @celery_app.task(name="extract.process_job", bind=True)
-def process_job_task(self, job_dict, conn_params):
+def process_job_task(self, job_dict, conn_params, save_to_disk=True):
     task_id = self.request.id
     job_dict['celery_task_id'] = task_id
     job_dict['status'] = 'running'
     job_dict['updated_at'] = datetime.now().isoformat()
     update_job_status(ExtractJob(**job_dict))
-    extractor = PostgresExtractor(conn_params)
+
+    # Initialize extractor with save_to_disk option
+    extractor = PostgresExtractor(conn_params, save_to_disk=save_to_disk)
+
     result = asyncio.run(extractor.extract_incremental(job_dict))
     return result
 
@@ -38,6 +41,100 @@ def add_extract_job(source_db_id, table_name, use_ctid=True, cursor_column=None,
     job.celery_task_id = result.id
     update_job_status(job)
     logger.info(f"Added job {job.id} to Celery queue for table {table_name}")
+    return job
+
+@celery_app.task(name="etl.process_pipeline", bind=True)
+def process_etl_pipeline(self, job_dict, conn_params, destination_config, dataset, table):
+    """Run the full ETL pipeline in one go without intermediate files"""
+    # Set up the job
+    job = ExtractJob(**job_dict)
+    job.celery_task_id = self.request.id
+    job.status = "running"
+    job.updated_at = datetime.now().isoformat()
+    update_job_status(job)
+    
+    try:
+        # 1. Extract
+        logger.info(f"Starting extraction for table {job.table_name}")
+        extractor = PostgresExtractor(conn_params, save_to_disk=False)
+        extract_result = asyncio.run(extractor.extract_incremental(job_dict))
+        
+        if not extract_result["success"]:
+            logger.error(f"Extraction failed: {extract_result['error']}")
+            return {"success": False, "stage": "extract", "error": extract_result["error"]}
+        
+        # 2. Transform
+        logger.info(f"Starting transformation of {len(extract_result['batches'])} batches")
+        transformer = Transformer()
+        transformed_data = transformer.transform_batches(extract_result["batches"])
+        
+        # 3. Load
+        logger.info(f"Starting load to BigQuery {dataset}.{table}")
+        loader = BigQueryLoader(destination_config)
+        
+        # Add loading timestamp to records
+        loaded_at = datetime.now(timezone.utc).isoformat()
+        for record in transformed_data:
+            record["_loaded_at"] = loaded_at
+
+        # Load to BigQuery
+        load_result = loader.load_to_bigquery(dataset, table, transformed_data)
+        
+        # Create load job record
+        load_job = LoadJob(
+            extract_job_id=job.id,
+            destination_type="bigquery",
+            destination_config=destination_config,
+            dataset=dataset,
+            table=table,
+            status="completed" if load_result else "failed",
+            records_loaded=len(transformed_data) if load_result else 0
+        )
+        update_job_status(load_job)
+        
+        logger.info(f"ETL pipeline completed: extracted {job.extracted_records} records, loaded {len(transformed_data)} records")
+        return {
+            "success": True, 
+            "extract_job_id": job.id,
+            "load_job_id": load_job.id,
+            "records_extracted": job.extracted_records,
+            "records_loaded": len(transformed_data)
+        }
+    
+    except Exception as e:
+        logger.error(f"ETL pipeline failed: {str(e)}")
+        job.status = "failed"
+        job.error = str(e)
+        job.updated_at = datetime.now().isoformat()
+        update_job_status(job)
+        return {"success": False, "error": str(e)}
+
+def add_etl_job(source_db_id, table_name, conn_params, destination_config, dataset, table, use_ctid=True, cursor_column=None, cursor_value=None, batch_size=1000):
+    """Create and queue a combined ETL job"""
+    job = ExtractJob(
+        table_name=table_name,
+        use_ctid=use_ctid,
+        cursor_column=cursor_column if not use_ctid else None,
+        cursor_value=cursor_value,
+        batch_size=batch_size
+    )
+    job_dict = job.to_dict()
+    update_job_status(job)
+    
+    # Queue the ETL pipeline
+    result = process_etl_pipeline.delay(
+        job_dict, 
+        conn_params, 
+        destination_config, 
+        dataset, 
+        table
+    )
+    
+    # Update job with Celery task ID
+    job.celery_task_id = result.id
+    update_job_status(job)
+    
+    logger.info(f"Added ETL job {job.id} to Celery queue for {table_name} to {dataset}.{table}")
     return job
 
 @celery_app.task(name="transform.process_data", bind=True)
