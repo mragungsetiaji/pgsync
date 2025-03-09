@@ -6,10 +6,10 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { columns } from './components/sources-columns'
-import { UsersDialogs } from './components/users-dialogs'
-import { UsersPrimaryButtons } from './components/users-primary-buttons'
+import { SourcesDialogs } from './components/sources-dialogs'
+import { SourcesPrimaryButtons } from './components/sources-primary-buttons'
 import { SourcesTable } from './components/sources-table'
-import UsersProvider from './context/sources-context'
+import SourcesProvider from './context/sources-context'
 import { sourceListSchema } from './data/schema'
 import { sources } from './data/sources'
 
@@ -18,7 +18,7 @@ export default function Users() {
   const userList = sourceListSchema.parse(sources)
 
   return (
-    <UsersProvider>
+    <SourcesProvider>
       <Header fixed>
         <Search />
         <div className='ml-auto flex items-center space-x-4'>
@@ -35,14 +35,14 @@ export default function Users() {
               Manage Sources.
             </p>
           </div>
-          <UsersPrimaryButtons />
+          <SourcesPrimaryButtons />
         </div>
         <div className='-mx-4 flex-1 overflow-auto px-4 py-1 lg:flex-row lg:space-x-12 lg:space-y-0'>
           <SourcesTable data={userList} columns={columns} />
         </div>
       </Main>
 
-      <UsersDialogs />
-    </UsersProvider>
+      <SourcesDialogs />
+    </SourcesProvider>
   )
 }

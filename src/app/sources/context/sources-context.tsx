@@ -1,40 +1,40 @@
 import React, { useState } from 'react'
 import useDialogState from '@/hooks/use-dialog-state'
-import { Source as User } from '../data/schema'
+import { Source } from '../data/schema'
 
-type UsersDialogType = 'invite' | 'add' | 'edit' | 'delete'
+type SourcesDialogType = 'invite' | 'add' | 'edit' | 'delete'
 
-interface UsersContextType {
-  open: UsersDialogType | null
-  setOpen: (str: UsersDialogType | null) => void
-  currentRow: User | null
-  setCurrentRow: React.Dispatch<React.SetStateAction<User | null>>
+interface SourcesContextType {
+  open: SourcesDialogType | null
+  setOpen: (str: SourcesDialogType | null) => void
+  currentRow: Source | null
+  setCurrentRow: React.Dispatch<React.SetStateAction<Source | null>>
 }
 
-const UsersContext = React.createContext<UsersContextType | null>(null)
+const SourcesContext = React.createContext<SourcesContextType | null>(null)
 
 interface Props {
   children: React.ReactNode
 }
 
-export default function UsersProvider({ children }: Props) {
-  const [open, setOpen] = useDialogState<UsersDialogType>(null)
-  const [currentRow, setCurrentRow] = useState<User | null>(null)
+export default function SourcesProvider({ children }: Props) {
+  const [open, setOpen] = useDialogState<SourcesDialogType>(null)
+  const [currentRow, setCurrentRow] = useState<Source | null>(null)
 
   return (
-    <UsersContext value={{ open, setOpen, currentRow, setCurrentRow }}>
+    <SourcesContext value={{ open, setOpen, currentRow, setCurrentRow }}>
       {children}
-    </UsersContext>
+    </SourcesContext>
   )
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const useUsers = () => {
-  const usersContext = React.useContext(UsersContext)
+export const useSources = () => {
+  const sourcesContext = React.useContext(SourcesContext)
 
-  if (!usersContext) {
-    throw new Error('useUsers has to be used within <UsersContext>')
+  if (!sourcesContext) {
+    throw new Error('useSources has to be used within <SourcesContext>')
   }
 
-  return usersContext
+  return sourcesContext
 }

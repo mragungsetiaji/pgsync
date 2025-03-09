@@ -21,7 +21,6 @@ import { RecentSales } from './dashboard/components/recent-sales'
 import UsersProvider from './sources/context/sources-context'
 import { sourceListSchema } from './sources/data/schema'
 import { sources } from './sources/data/sources'
-import { UsersPrimaryButtons } from './sources/components/users-primary-buttons'
 import { SourcesTable } from './sources/components/sources-table'
 import { columns } from './sources/components/sources-columns'
 
@@ -148,20 +147,21 @@ export default function Dashboard() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* PLACEHOLDER */}
         <UsersProvider>
-        <div className='mb-2 flex items-center justify-between space-y-2 flex-wrap'>
-                <div>
-                  <h2 className='text-2xl font-bold tracking-tight'>Source List</h2>
-                  <p className='text-muted-foreground'>
-                    Manage Sources.
-                  </p>
-                </div>
-                <UsersPrimaryButtons />
-              </div>
-              <div className='-mx-4 flex-1 overflow-auto px-4 py-1 lg:flex-row lg:space-x-12 lg:space-y-0'>
-                <SourcesTable data={userList} columns={columns} />
-              </div>
-              </UsersProvider>
+          <div className='mb-2 flex items-center justify-between space-y-2 flex-wrap'>
+            <div>
+              <h2 className='text-2xl font-bold tracking-tight'>Source List</h2>
+              <p className='text-muted-foreground'>
+                Manage Sources.
+              </p>
+            </div>
+          </div>
+          <div className='-mx-4 flex-1 overflow-auto px-4 py-1 lg:flex-row lg:space-x-12 lg:space-y-0'>
+            <SourcesTable data={userList} columns={columns} />
+          </div>
+        </UsersProvider>
       </Main>
     </>
   )

@@ -1,10 +1,10 @@
-import { useUsers } from '../context/sources-context'
+import { useSources } from '../context/sources-context'
 import { UsersActionDialog } from './users-action-dialog'
 import { UsersDeleteDialog } from './users-delete-dialog'
 import { UsersInviteDialog } from './users-invite-dialog'
 
-export function UsersDialogs() {
-  const { open, setOpen, currentRow, setCurrentRow } = useUsers()
+export function SourcesDialogs() {
+  const { open, setOpen, currentRow, setCurrentRow } = useSources()
   return (
     <>
       <UsersActionDialog
