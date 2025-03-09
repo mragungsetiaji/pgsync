@@ -25,8 +25,8 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { PasswordInput } from '@/components/password-input'
 import { SelectDropdown } from '@/components/select-dropdown'
-import { userTypes } from '../data/data'
-import { User } from '../data/schema'
+import { SourceTypes } from '../data/data'
+import { Source } from '../data/schema'
 
 const formSchema = z
   .object({
@@ -86,17 +86,17 @@ const formSchema = z
       }
     }
   })
-type UserForm = z.infer<typeof formSchema>
+type SourceForm = z.infer<typeof formSchema>
 
 interface Props {
-  currentRow?: User
+  currentRow?: Source
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
+export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
   const isEdit = !!currentRow
-  const form = useForm<UserForm>({
+  const form = useForm<SourceForm>({
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
       ? {
@@ -118,7 +118,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
         },
   })
 
-  const onSubmit = (values: UserForm) => {
+  const onSubmit = (values: SourceForm) => {
     form.reset()
     toast({
       title: 'You submitted the following values:',
@@ -266,7 +266,7 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
                       onValueChange={field.onChange}
                       placeholder='Select a role'
                       className='col-span-4'
-                      items={userTypes.map(({ label, value }) => ({
+                      items={sourceTypes.map(({ label, value }) => ({
                         label,
                         value,
                       }))}

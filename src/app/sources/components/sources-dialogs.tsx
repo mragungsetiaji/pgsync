@@ -1,27 +1,20 @@
 import { useSources } from '../context/sources-context'
-import { UsersActionDialog } from './users-action-dialog'
-import { UsersDeleteDialog } from './users-delete-dialog'
-import { UsersInviteDialog } from './users-invite-dialog'
+import { SourcesActionDialog } from './sources-action-dialog'
+import { SourcesDeleteDialog } from './sources-delete-dialog'
 
 export function SourcesDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useSources()
   return (
     <>
-      <UsersActionDialog
+      <SourcesActionDialog
         key='user-add'
         open={open === 'add'}
         onOpenChange={() => setOpen('add')}
       />
 
-      <UsersInviteDialog
-        key='user-invite'
-        open={open === 'invite'}
-        onOpenChange={() => setOpen('invite')}
-      />
-
       {currentRow && (
         <>
-          <UsersActionDialog
+          <SourcesActionDialog
             key={`user-edit-${currentRow.id}`}
             open={open === 'edit'}
             onOpenChange={() => {
@@ -33,7 +26,7 @@ export function SourcesDialogs() {
             currentRow={currentRow}
           />
 
-          <UsersDeleteDialog
+          <SourcesDeleteDialog
             key={`user-delete-${currentRow.id}`}
             open={open === 'delete'}
             onOpenChange={() => {
