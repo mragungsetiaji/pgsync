@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import LongText from '@/components/long-text'
-import { callTypes } from '../data/data'
+import { destinationStatusStyles  } from '../data/data'
 import { Destination } from '../data/schema'
 import { DataTableColumnHeader } from './data-table-column-header'
 import { DataTableRowActions } from './data-table-row-actions'
@@ -100,7 +100,7 @@ export const destcolumns: ColumnDef<Destination>[] = [
       const date = row.getValue('lastSync') as Date
       return (
         <div className='text-sm'>
-          {formatDistanceToNow(date, { addSuffix: true })}
+          {/* {formatDistanceToNow(date, { addSuffix: true })} */}
         </div>
       )
     },
@@ -112,7 +112,7 @@ export const destcolumns: ColumnDef<Destination>[] = [
     ),
     cell: ({ row }) => {
       const { status } = row.original
-      const badgeColor = callTypes.get(status)
+      const badgeColor = destinationStatusStyles .get(status)
       return (
         <div className='flex space-x-2'>
           <Badge variant='outline' className={cn('capitalize', badgeColor)}>

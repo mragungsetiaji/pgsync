@@ -5,19 +5,18 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { destcolumns } from './components/destinations-columns'
-import { UsersDialogs } from './components/users-dialogs'
-import { UsersPrimaryButtons } from './components/users-primary-buttons'
+import { DestinationsDialogs } from './components/destinations-dialogs'
+import { DestinationsPrimaryButtons } from './components/destinations-primary-buttons'
 import { DestinationsTable } from './components/destinations-table'
-import UsersProvider from './context/destinations-context'
+import DestinationsProvider from './context/destinations-context'
 import { destinationListSchema } from './data/schema'
 import { destinations } from './data/destinations'
 
-export default function Users() {
-  // Parse user list
+export default function Destinations() {
   const destinationList = destinationListSchema.parse(destinations)
 
   return (
-    <UsersProvider>
+    <DestinationsProvider>
       <Header fixed>
         <div className='ml-auto flex items-center space-x-4'>
           <ThemeSwitch />
@@ -33,7 +32,7 @@ export default function Users() {
               Manage destinations.
             </p>
           </div>
-          <UsersPrimaryButtons />
+          <DestinationsPrimaryButtons />
         </div>
         <div className='-mx-4 flex-1 overflow-auto px-4 py-1 lg:flex-row lg:space-x-12 lg:space-y-0'>
           {/* <UsersTable data={userList} columns={columns} /> */}
@@ -41,7 +40,7 @@ export default function Users() {
         </div>
       </Main>
 
-      <UsersDialogs />
-    </UsersProvider>
+      <DestinationsDialogs />
+    </DestinationsProvider>
   )
 }
