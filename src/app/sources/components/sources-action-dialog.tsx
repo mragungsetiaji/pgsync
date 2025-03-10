@@ -25,113 +25,162 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { PasswordInput } from '@/components/password-input'
 import { SelectDropdown } from '@/components/select-dropdown'
-import { SourceTypes } from '../data/data'
-import { Source } from '../data/schema'
+import { connectorTypeSchema, Source } from '../data/schema'
 
-const formSchema = z
-  .object({
-    firstName: z.string().min(1, { message: 'First Name is required.' }),
-    lastName: z.string().min(1, { message: 'Last Name is required.' }),
-    username: z.string().min(1, { message: 'Username is required.' }),
-    phoneNumber: z.string().min(1, { message: 'Phone number is required.' }),
-    email: z
-      .string()
-      .min(1, { message: 'Email is required.' })
-      .email({ message: 'Email is invalid.' }),
-    password: z.string().transform((pwd) => pwd.trim()),
-    role: z.string().min(1, { message: 'Role is required.' }),
-    confirmPassword: z.string().transform((pwd) => pwd.trim()),
-    isEdit: z.boolean(),
-  })
-  .superRefine(({ isEdit, password, confirmPassword }, ctx) => {
-    if (!isEdit || (isEdit && password !== '')) {
-      if (password === '') {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Password is required.',
-          path: ['password'],
-        })
-      }
+// Form validation schema
+const formSchema = z.object({
+  name: z.string().min(1, { message: 'Source name is required.' }),
+  connector: connectorTypeSchema,
+  host: z.string().min(1, { message: 'Host is required.' }),
+  port: z.coerce.number()
+    .int()
+    .min(1, { message: 'Port must be a positive number.' })
+    .max(65535, { message: 'Port must be less than or equal to 65535.' }),
+  database: z.string().min(1, { message: 'Database name is required.' }),
+  user: z.string().min(1, { message: 'Username is required.' }),
+  password: z.string().min(1, { message: 'Password is required.' }),
+  isEdit: z.boolean()
+})
 
-      if (password.length < 8) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Password must be at least 8 characters long.',
-          path: ['password'],
-        })
-      }
-
-      if (!password.match(/[a-z]/)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Password must contain at least one lowercase letter.',
-          path: ['password'],
-        })
-      }
-
-      if (!password.match(/\d/)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Password must contain at least one number.',
-          path: ['password'],
-        })
-      }
-
-      if (password !== confirmPassword) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Passwords don't match.",
-          path: ['confirmPassword'],
-        })
-      }
-    }
-  })
 type SourceForm = z.infer<typeof formSchema>
 
 interface Props {
-  currentRow?: Source
+  currentSource?: Source
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSubmitSuccess?: (data: SourceForm) => void
 }
 
-export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
-  const isEdit = !!currentRow
+export function SourcesActionDialog({ 
+  currentSource,
+  open, 
+  onOpenChange,
+  onSubmitSuccess 
+}: Props) {
+  const isEdit = !!currentSource
   const form = useForm<SourceForm>({
     resolver: zodResolver(formSchema),
     defaultValues: isEdit
       ? {
-          ...currentRow,
-          password: '',
-          confirmPassword: '',
-          isEdit,
+          name: currentSource.name,
+          connector: currentSource.connector,
+          host: currentSource.host || '',
+          port: currentSource.port || 5432,
+          database: currentSource.database || '',
+          user: currentSource.user || '',
+          password: '', // For security, don't fill in the password
+          isEdit: true,
         }
       : {
-          firstName: '',
-          lastName: '',
-          username: '',
-          email: '',
-          role: '',
-          phoneNumber: '',
+          name: '',
+          connector: 'postgres',
+          host: '',
+          port: 5432,
+          database: '',
+          user: '',
           password: '',
-          confirmPassword: '',
-          isEdit,
+          isEdit: false,
         },
   })
 
-  const onSubmit = (values: SourceForm) => {
-    form.reset()
-    toast({
-      title: 'You submitted the following values:',
-      description: (
-        <pre className='mt-2 w-[340px] rounded-md bg-slate-950 p-4'>
-          <code className='text-white'>{JSON.stringify(values, null, 2)}</code>
-        </pre>
-      ),
-    })
-    onOpenChange(false)
+  const onSubmit = async (values: SourceForm) => {
+    try {
+      // Prepare payload for API (remove isEdit field which is just for form logic)
+      const payload = {
+        name: values.name,
+        connector: values.connector,
+        host: values.host,
+        port: values.port,
+        database: values.database,
+        user: values.user,
+        password: values.password,
+      }
+
+      // Determine whether to create or update
+      const url = isEdit ? `/api/sources/${currentSource?.id}` : '/api/sources'
+      const method = isEdit ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to save data source')
+      }
+
+      const result = await response.json()
+
+      // Reset form and close dialog
+      form.reset()
+      onOpenChange(false)
+      
+      // Notify success
+      toast({
+        title: isEdit ? 'Data source updated' : 'Data source created',
+        description: `${values.name} has been ${isEdit ? 'updated' : 'created'} successfully.`,
+      })
+      
+      // Callback if provided
+      if (onSubmitSuccess) {
+        onSubmitSuccess(values)
+      }
+    } catch (error) {
+      console.error('Error saving data source:', error)
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save data source',
+        variant: 'destructive',
+      })
+    }
   }
 
-  const isPasswordTouched = !!form.formState.dirtyFields.password
+  const testConnection = async () => {
+    try {
+      const formValues = form.getValues()
+      
+      const payload = {
+        host: formValues.host,
+        port: formValues.port,
+        database: formValues.database,
+        user: formValues.user,
+        password: formValues.password,
+      }
+      
+      const response = await fetch('/api/sources/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Connection test failed')
+      }
+      
+      toast({
+        title: 'Connection successful',
+        description: 'Successfully connected to the database.',
+      })
+    } catch (error) {
+      console.error('Connection test error:', error)
+      toast({
+        title: 'Connection failed',
+        description: error instanceof Error ? error.message : 'Failed to connect to the database',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const connectorOptions = [
+    { label: 'PostgreSQL', value: 'postgres' },
+  ]
 
   return (
     <Dialog
@@ -143,30 +192,30 @@ export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
     >
       <DialogContent className='sm:max-w-lg'>
         <DialogHeader className='text-left'>
-          <DialogTitle>{isEdit ? 'Edit User' : 'Add New User'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Data Source' : 'Add New Data Source'}</DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Update the user here. ' : 'Create new user here. '}
+            {isEdit ? 'Update the data source connection details. ' : 'Create a new data source connection. '}
             Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className='h-[26.25rem] w-full pr-4 -mr-4 py-1'>
           <Form {...form}>
             <form
-              id='user-form'
+              id='source-form'
               onSubmit={form.handleSubmit(onSubmit)}
               className='space-y-4 p-0.5'
             >
               <FormField
                 control={form.control}
-                name='firstName'
+                name='name'
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
                     <FormLabel className='col-span-2 text-right'>
-                      First Name
+                      Source Name
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='John'
+                        placeholder='Production Database'
                         className='col-span-4'
                         autoComplete='off'
                         {...field}
@@ -176,17 +225,38 @@ export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
                   </FormItem>
                 )}
               />
+              
               <FormField
                 control={form.control}
-                name='lastName'
+                name='connector'
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
                     <FormLabel className='col-span-2 text-right'>
-                      Last Name
+                      Connector Type
+                    </FormLabel>
+                    <SelectDropdown
+                      defaultValue={field.value}
+                      onValueChange={field.onChange}
+                      placeholder='Select connector type'
+                      className='col-span-4'
+                      items={connectorOptions}
+                    />
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name='host'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
+                    <FormLabel className='col-span-2 text-right'>
+                      Host
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='Doe'
+                        placeholder='localhost or 127.0.0.1'
                         className='col-span-4'
                         autoComplete='off'
                         {...field}
@@ -196,9 +266,52 @@ export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
                   </FormItem>
                 )}
               />
+              
               <FormField
                 control={form.control}
-                name='username'
+                name='port'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
+                    <FormLabel className='col-span-2 text-right'>
+                      Port
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder='5432'
+                        className='col-span-4'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name='database'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
+                    <FormLabel className='col-span-2 text-right'>
+                      Database Name
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='postgres'
+                        className='col-span-4'
+                        autoComplete='off'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name='user'
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
                     <FormLabel className='col-span-2 text-right'>
@@ -206,8 +319,9 @@ export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='john_doe'
+                        placeholder='postgres'
                         className='col-span-4'
+                        autoComplete='off'
                         {...field}
                       />
                     </FormControl>
@@ -215,66 +329,7 @@ export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name='email'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Email
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder='john.doe@gmail.com'
-                        className='col-span-4'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='phoneNumber'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Phone Number
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder='+123456789'
-                        className='col-span-4'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='role'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Role
-                    </FormLabel>
-                    <SelectDropdown
-                      defaultValue={field.value}
-                      onValueChange={field.onChange}
-                      placeholder='Select a role'
-                      className='col-span-4'
-                      items={sourceTypes.map(({ label, value }) => ({
-                        label,
-                        value,
-                      }))}
-                    />
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
+              
               <FormField
                 control={form.control}
                 name='password'
@@ -285,27 +340,7 @@ export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
                     </FormLabel>
                     <FormControl>
                       <PasswordInput
-                        placeholder='e.g., S3cur3P@ssw0rd'
-                        className='col-span-4'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='confirmPassword'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Confirm Password
-                    </FormLabel>
-                    <FormControl>
-                      <PasswordInput
-                        disabled={!isPasswordTouched}
-                        placeholder='e.g., S3cur3P@ssw0rd'
+                        placeholder={isEdit ? 'Enter to change password' : 'Enter password'}
                         className='col-span-4'
                         {...field}
                       />
@@ -318,8 +353,15 @@ export function SourcesActionDialog({ currentRow, open, onOpenChange }: Props) {
           </Form>
         </ScrollArea>
         <DialogFooter>
-          <Button type='submit' form='user-form'>
-            Save changes
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={testConnection}
+          >
+            Test Connection
+          </Button>
+          <Button type='submit' form='source-form'>
+            {isEdit ? 'Update Source' : 'Create Source'}
           </Button>
         </DialogFooter>
       </DialogContent>
