@@ -35,7 +35,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 type DestinationForm = z.infer<typeof destinationCreateSchema> & { isEdit: boolean }
 
 interface Props {
-  currentDestination?: Destination
+  currentRow?: Destination
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmitSuccess?: (data: any) => void
@@ -43,13 +43,13 @@ interface Props {
 }
 
 export function DestinationsActionDialog({ 
-  currentDestination, 
+  currentRow, 
   open, 
   onOpenChange,
   onSubmitSuccess,
   dialogHeight = "95vh"  
 }: Props) {
-  const isEdit = !!currentDestination
+  const isEdit = !!currentRow
   const [testingConnection, setTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<{
     success: boolean; 
@@ -60,17 +60,16 @@ export function DestinationsActionDialog({
     resolver: zodResolver(destinationCreateSchema.extend({ isEdit: z.boolean() })),
     defaultValues: isEdit
       ? {
-          name: currentDestination.name,
+          name: currentRow.name,
           type: 'bigquery', // Currently only supporting BigQuery
-          project_id: currentDestination.project_id || '',
-          dataset: currentDestination.dataset || '',
+          project_id: currentRow.project_id || '',
+          dataset: currentRow.dataset || '',
           credentials: '', // For security, don't fill in credentials
-          bucket_name: currentDestination.bucket_name || '',
-          folder_path: currentDestination.folder_path || '',
+          bucket_name: currentRow.bucket_name || '',
+          folder_path: currentRow.folder_path || '',
           hmac_key: '',  // For security, don't fill in HMAC key
           hmac_secret: '', // For security, don't fill in HMAC secret
-          is_active: currentDestination.is_active ?? true,
-          isEdit: true,
+          isEdit,
         }
       : {
           name: '',
@@ -82,15 +81,14 @@ export function DestinationsActionDialog({
           folder_path: '',
           hmac_key: '',
           hmac_secret: '',
-          is_active: true,
-          isEdit: false,
+          isEdit,
         },
   })
 
   const onSubmit = async (values: DestinationForm) => {
     try {
       const endpoint = isEdit 
-        ? `/api/destinations/${currentDestination?.id}` 
+        ? `/api/destinations/${currentRow?.id}` 
         : '/api/destinations'
 
       const method = isEdit ? 'PUT' : 'POST'
@@ -110,7 +108,6 @@ export function DestinationsActionDialog({
           folder_path: values.folder_path,
           hmac_key: values.hmac_key,
           hmac_secret: values.hmac_secret,
-          is_active: values.is_active,
         }),
       })
 
@@ -412,33 +409,6 @@ export function DestinationsActionDialog({
                     <p className="text-sm text-muted-foreground col-span-4 col-start-3">
                       Optional: Used with HMAC Access Key for authentication
                     </p>
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem className="grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0">
-                    <FormLabel className="col-span-2 text-right">
-                      Active
-                    </FormLabel>
-                    <FormControl>
-                      <div className="flex items-center">
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          id="is_active"
-                        />
-                        <label
-                          htmlFor="is_active"
-                          className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          Enable this destination
-                        </label>
-                      </div>
-                    </FormControl>
                   </FormItem>
                 )}
               />

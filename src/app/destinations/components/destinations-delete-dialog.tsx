@@ -12,26 +12,26 @@ import { Destination } from '../data/schema'
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  currentDestination: Destination
+  currentRow: Destination
   onDeleteSuccess?: () => void
 }
 
 export function DestinationsDeleteDialog({ 
   open, 
   onOpenChange, 
-  currentDestination,
+  currentRow,
   onDeleteSuccess 
 }: Props) {
   const [value, setValue] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async () => {
-    if (value.trim() !== currentDestination.name) return
+    if (value.trim() !== currentRow.name) return
     
     try {
       setIsDeleting(true)
       
-      const response = await fetch(`/api/destinations/${currentDestination.id}`, {
+      const response = await fetch(`/api/destinations/${currentRow.id}`, {
         method: 'DELETE',
       })
       
@@ -45,7 +45,7 @@ export function DestinationsDeleteDialog({
       
       toast({
         title: 'Destination deleted',
-        description: `${currentDestination.name} has been deleted successfully`,
+        description: `${currentRow.name} has been deleted successfully`,
       })
       
       if (onDeleteSuccess) {
@@ -72,7 +72,7 @@ export function DestinationsDeleteDialog({
         onOpenChange(newOpen)
       }}
       handleConfirm={handleDelete}
-      disabled={value.trim() !== currentDestination.name || isDeleting}
+      disabled={value.trim() !== currentRow.name || isDeleting}
       title={
         <span className='text-destructive'>
           <IconAlertTriangle
@@ -86,7 +86,7 @@ export function DestinationsDeleteDialog({
         <div className='space-y-4'>
           <p className='mb-2'>
             Are you sure you want to delete{' '}
-            <span className='font-bold'>{currentDestination.name}</span>?
+            <span className='font-bold'>{currentRow.name}</span>?
             <br />
             This action will permanently remove this BigQuery destination 
             and all associated configuration. This cannot be undone.
@@ -97,7 +97,7 @@ export function DestinationsDeleteDialog({
             <Input
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={`Type "${currentDestination.name}" to confirm`}
+              placeholder={`Type "${currentRow.name}" to confirm`}
               className="mt-1"
             />
           </Label>
