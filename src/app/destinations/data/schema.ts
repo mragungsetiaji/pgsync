@@ -22,8 +22,8 @@ export const destinationSchema = z.object({
   dataset: z.string().optional(),
   bucket_name: z.string().optional(),
   folder_path: z.string().optional(),
-  is_active: z.boolean().default(true),
   last_synced_at: z.coerce.date().nullable().optional(),
+  status : destinationStatusSchema,
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional()
 })
@@ -40,7 +40,6 @@ export const destinationCreateSchema = z.object({
   folder_path: z.string().optional(),
   hmac_key: z.string().optional(),
   hmac_secret: z.string().optional(),
-  is_active: z.boolean().default(true)
 })
 export type DestinationCreate = z.infer<typeof destinationCreateSchema>
 export const destinationUpdateSchema = destinationCreateSchema.partial()

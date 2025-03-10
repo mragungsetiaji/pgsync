@@ -9,8 +9,8 @@ export const destinations: Destination[] = [
     dataset: 'raw_data',
     bucket_name: 'analytics-staging-bucket',
     folder_path: 'ingestion/postgres',
-    is_active: true,
     last_synced_at: null,
+    status: 'suspended',
     created_at: new Date('2024-02-20T09:00:00Z'),
     updated_at: new Date('2024-02-25T09:12:33Z')
   },
@@ -21,9 +21,9 @@ export const destinations: Destination[] = [
     project_id: 'marketing-data-456789',
     dataset: 'marketing_raw',
     bucket_name: 'marketing-etl-bucket',
-    folder_path: 'raw/postgres',
-    is_active: false,
+    folder_path: 'raw/postgres',   
     last_synced_at: new Date('2024-03-10T09:30:00Z'),
+    status: 'suspended',
     created_at: new Date('2024-01-15T14:30:00Z'),
     updated_at: new Date('2024-03-01T14:25:17Z')
   },
@@ -35,8 +35,8 @@ export const destinations: Destination[] = [
     dataset: 'customer_data',
     bucket_name: 'customer-data-lake',
     folder_path: 'customer/source',
-    is_active: false,
     last_synced_at: new Date('2024-03-10T09:30:00Z'),
+    status: 'active',
     created_at: new Date('2024-01-05T11:20:00Z'),
     updated_at: new Date('2024-02-10T08:45:09Z')
   },
@@ -48,8 +48,8 @@ export const destinations: Destination[] = [
     dataset: 'finance_raw',
     bucket_name: 'finance-etl-storage',
     folder_path: 'finance/postgres',
-    is_active: true,
     last_synced_at: new Date('2024-03-10T09:30:00Z'),
+    status: 'active',
     created_at: new Date('2024-02-28T10:15:00Z'),
     updated_at: new Date('2024-03-07T17:38:22Z')
   },
@@ -61,8 +61,8 @@ export const destinations: Destination[] = [
     dataset: 'product_data',
     bucket_name: 'product-metrics-storage',
     folder_path: 'metrics/raw',
-    is_active: true,
     last_synced_at: new Date('2024-03-10T09:30:00Z'),
+    status: 'active',
     created_at: new Date('2023-12-10T09:30:00Z'),
     updated_at: new Date('2024-01-15T11:05:41Z')
   },
@@ -74,8 +74,8 @@ export const destinations: Destination[] = [
     dataset: 'dev_data',
     bucket_name: 'dev-testing-bucket',
     folder_path: 'development/test',
-    is_active: true,
     last_synced_at: new Date('2024-03-10T09:30:00Z'),
+    status: 'inactive',
     created_at: new Date('2024-03-01T08:00:00Z'),
     updated_at: new Date('2024-03-08T16:20:15Z')
   }
