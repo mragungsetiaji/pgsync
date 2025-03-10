@@ -23,6 +23,7 @@ export const destinationSchema = z.object({
   bucket_name: z.string().optional(),
   folder_path: z.string().optional(),
   is_active: z.boolean().default(true),
+  last_synced_at: z.coerce.date().nullable().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional()
 })

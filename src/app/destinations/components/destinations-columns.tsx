@@ -59,12 +59,12 @@ export const destcolumns: ColumnDef<Destination>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: 'connector',
+    accessorKey: 'type',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Connector' />
+      <DataTableColumnHeader column={column} title='Type' />
     ),
     cell: ({ row }) => {
-      const connector = row.getValue('connector') as string
+      const connector = row.getValue('type') as string
       return (
         <div className='flex gap-x-2 items-center'>
           <Server size={16} className='text-muted-foreground' />
@@ -92,18 +92,36 @@ export const destcolumns: ColumnDef<Destination>[] = [
     },
   },
   {
-    accessorKey: 'lastSync',
+    accessorKey: 'last_synced_at',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Last Sync' />
     ),
     cell: ({ row }) => {
-      const date = row.getValue('lastSync') as Date
+      const date = row.getValue('last_synced_at') as Date | null
+
+      // If date is null, return an empty div or "Never synced" message
+      if (!date) {
+        return <div className="text-sm text-muted-foreground">-</div>
+      }
+
       return (
         <div className='text-sm'>
-          {/* {formatDistanceToNow(date, { addSuffix: true })} */}
+          {formatDistanceToNow(date, { addSuffix: true })}
         </div>
       )
     },
+    // Optional: If you want to ensure these rows appear at the bottom when sorting
+    sortingFn: (rowA, rowB, columnId) => {
+      const dateA = rowA.getValue(columnId) as Date | null
+      const dateB = rowB.getValue(columnId) as Date | null
+
+      // Handle null values in sorting
+      if (!dateA && !dateB) return 0
+      if (!dateA) return 1 // null values at the end
+      if (!dateB) return -1
+
+      return dateA.getTime() - dateB.getTime()
+    }
   },
   {
     accessorKey: 'status',
