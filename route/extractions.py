@@ -6,8 +6,8 @@ from models.database import Source, ExtractionJob
 from session_manager import get_db_session
 from models.api import ExtractJobCreate, ExtractJobResponse, StatusResponse
 
-from pipeline.extract import add_extract_job, get_job_status
-from services.postgres import Postgres
+from worker.tasks import add_extract_job, get_job_status
+from connector.postgres_source import PostgresSource as Postgres
 
 router = APIRouter(
     prefix="/extractions",

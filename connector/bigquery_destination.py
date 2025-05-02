@@ -7,7 +7,7 @@ class BigQueryDestination:
     """
     A class to handle BigQuery connection and schema operations.
     """
-    def __init__(self, credentials_path=None, credentials_json=None, project_id=None):
+    def __init__(self, project_id, dataset, credentials_json=None):
         """
         Initialize BigQuery connection parameters.
         

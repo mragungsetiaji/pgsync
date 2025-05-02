@@ -43,13 +43,6 @@ def create_destination(
                 detail="Could not connect to BigQuery or GCS with the provided credentials"
             )
             
-        # Check if dataset exists
-        if not bq.check_dataset_exists():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Dataset '{destination_data.dataset}' does not exist in project '{destination_data.project_id}'"
-            )
-            
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -174,12 +167,10 @@ def test_connection(conn_data: TestBigQueryConnectionRequest):
                 detail="Could not connect to BigQuery or GCS with the provided credentials"
             )
             
-        # Check if dataset exists
-        dataset_exists = bq.check_dataset_exists()
         
         return {
             "status": "success", 
-            "message": "Connection successful" + (", dataset exists" if dataset_exists else ", but dataset does not exist")
+            "message": "Connection successful"
         }
             
     except ValueError as e:
