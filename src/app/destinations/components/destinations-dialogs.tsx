@@ -1,44 +1,77 @@
-import { useDestinations } from '../context/destinations-context'
+'use client'
+
+import { useDestinationsContext } from '../context/destinations-context'
 import { DestinationsActionDialog } from './destinations-action-dialog'
 import { DestinationsDeleteDialog } from './destinations-delete-dialog'
 
 export function DestinationsDialogs() {
-  const { open, setOpen, currentRow, setCurrentRow } = useDestinations()
+  const {
+    selectedDestination,
+    setSelectedDestination,
+    isAddDialogOpen, 
+    setIsAddDialogOpen,
+    isEditDialogOpen,
+    setIsEditDialogOpen,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    refreshDestinations
+  } = useDestinationsContext()
+  
   return (
     <>
+      {/* Add Dialog */}
       <DestinationsActionDialog
-        key='user-add'
-        open={open === 'add'}
-        onOpenChange={() => setOpen('add')}
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open)
+          if (!open) setSelectedDestination(null)
+        }}
+        onSubmitSuccess={() => {
+          refreshDestinations()
+        }}
       />
-
-      {currentRow && (
-        <>
-          <DestinationsActionDialog
-            key={`user-edit-${currentRow.id}`}
-            open={open === 'edit'}
-            onOpenChange={() => {
-              setOpen('edit')
-              setTimeout(() => {
-                setCurrentRow(null)
-              }, 500)
-            }}
-            currentRow={currentRow}
-          />
-
-          <DestinationsDeleteDialog
-            key={`user-delete-${currentRow.id}`}
-            open={open === 'delete'}
-            onOpenChange={() => {
-              setOpen('delete')
-              setTimeout(() => {
-                setCurrentRow(null)
-              }, 500)
-            }}
-            currentRow={currentRow}
-          />
-        </>
-      )}
+      
+      {/* Edit Dialog */}
+      <DestinationsActionDialog
+        currentRow={selectedDestination!}
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open)
+          if (!open) setSelectedDestination(null)
+        }}
+        onSubmitSuccess={() => {
+          refreshDestinations()
+        }}
+      />
+      
+      {/* Delete Dialog */}
+      <DestinationsDeleteDialog 
+        destination={selectedDestination}
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open) setSelectedDestination(null)
+        }}
+        onDelete={async () => {
+          if (!selectedDestination) return
+          
+          try {
+            const response = await fetch(`/api/destinations/${selectedDestination.id}`, {
+              method: 'DELETE',
+            })
+            
+            if (!response.ok) {
+              throw new Error('Failed to delete destination')
+            }
+            
+            await refreshDestinations()
+            setIsDeleteDialogOpen(false)
+            setSelectedDestination(null)
+          } catch (error) {
+            console.error('Error deleting destination:', error)
+          }
+        }}
+      />
     </>
   )
 }

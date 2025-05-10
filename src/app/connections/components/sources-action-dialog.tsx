@@ -141,22 +141,29 @@ export function SourcesActionDialog({
 
   const testConnection = async () => {
     try {
-      const formValues = form.getValues()
+      setTestingConnection(true)
+      setConnectionStatus(null)
       
-      const payload = {
-        host: formValues.host,
-        port: formValues.port,
-        database: formValues.database,
-        user: formValues.user,
-        password: formValues.password,
-      }
+      // Get current form values
+      const values = form.getValues()
       
-      const response = await fetch('/api/sources/test-connection', {
+      // Convert credentials to base64
+      const credentials_json_base64 = btoa(values.credentials)
+      
+      const response = await fetch('/api/destinations/test-connection', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          project_id: values.project_id,
+          dataset: values.dataset,
+          credentials_json_base64: credentials_json_base64,
+          bucket_name: values.bucket_name,
+          folder_path: values.folder_path || null,
+          hmac_key: values.hmac_key || null,
+          hmac_secret: values.hmac_secret || null,
+        }),
       })
       
       if (!response.ok) {

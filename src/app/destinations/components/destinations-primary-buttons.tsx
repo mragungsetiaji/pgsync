@@ -1,13 +1,18 @@
-import { IconMailPlus, IconUserPlus } from '@tabler/icons-react'
+import { PlusIcon } from 'lucide-react' // Using Lucide icons for consistency
 import { Button } from '@/components/ui/button'
-import { useDestinations } from '../context/destinations-context'
+import { useDestinationsContext } from '../context/destinations-context'
 
 export function DestinationsPrimaryButtons() {
-  const { setOpen } = useDestinations()
+  const { setIsAddDialogOpen } = useDestinationsContext()
+  
   return (
     <div className='flex gap-2'>
-      <Button className='space-x-1' onClick={() => setOpen('add')}>
-        <span>Add Destination</span> <IconUserPlus size={18} />
+      <Button 
+        className='space-x-2' 
+        onClick={() => setIsAddDialogOpen(true)}
+      >
+        <span>Add Destination</span>
+        <PlusIcon size={16} />
       </Button>
     </div>
   )

@@ -90,25 +90,28 @@ export function DestinationsActionDialog({
       const endpoint = isEdit 
         ? `/api/destinations/${currentRow?.id}` 
         : '/api/destinations'
-
-      const method = isEdit ? 'PUT' : 'POST'
+  
+      // Convert the credentials JSON to base64 as required by your backend
+      const credentials_json_base64 = btoa(values.credentials)
       
+      const payload = {
+        name: values.name,
+        project_id: values.project_id,
+        dataset: values.dataset,
+        credentials_json_base64: credentials_json_base64,
+        bucket_name: values.bucket_name,
+        folder_path: values.folder_path || null,
+        hmac_key: values.hmac_key || null,
+        hmac_secret: values.hmac_secret || null,
+        is_active: true // Default to active
+      }
+  
       const response = await fetch(endpoint, {
-        method,
+        method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: values.name,
-          type: values.type,
-          project_id: values.project_id,
-          dataset: values.dataset,
-          credentials: values.credentials,
-          bucket_name: values.bucket_name,
-          folder_path: values.folder_path,
-          hmac_key: values.hmac_key,
-          hmac_secret: values.hmac_secret,
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
