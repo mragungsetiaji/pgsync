@@ -14,14 +14,14 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 
 import UsersProvider from './sources/context/sources-context'
-import { sourceListSchema } from './sources/data/schema'
-import { sources } from './sources/data/sources'
+// import { sourceListSchema } from './sources/data/schema'
+// import { sources } from './sources/data/sources'
 import { SourcesTable } from './sources/components/sources-table'
 import { columns } from './sources/components/sources-columns'
 
 export default function Dashboard() {
 
-  const userList = sourceListSchema.parse(sources)
+  // const userList = sourceListSchema.parse(sources)
   return (
     <>
       {/* ===== Top Heading ===== */}
@@ -143,7 +143,7 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
 
-        {/* PLACEHOLDER */}
+        {/* PLACEHOLDER
         <UsersProvider>
           <div className='mb-2 flex items-center justify-between space-y-2 flex-wrap'>
             <div>
@@ -156,7 +156,7 @@ export default function Dashboard() {
           <div className='-mx-4 flex-1 overflow-auto px-4 py-1 lg:flex-row lg:space-x-12 lg:space-y-0'>
             <SourcesTable data={userList} columns={columns} />
           </div>
-        </UsersProvider>
+        </UsersProvider> */}
       </Main>
     </>
   )
