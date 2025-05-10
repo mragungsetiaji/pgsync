@@ -7,7 +7,7 @@ class DestinationCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     project_id: str
     dataset: str
-    credentials: str  # JSON string with credentials
+    credentials_json_base64: str  # JSON string with credentials
     bucket_name: str
     folder_path: Optional[str] = None
     hmac_key: str
@@ -30,7 +30,6 @@ class DestinationResponse(BaseModel):
     """Response model for destination"""
     id: int
     name: str
-    type: str
     project_id: str
     dataset: str
     bucket_name: str

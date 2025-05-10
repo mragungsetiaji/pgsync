@@ -30,11 +30,7 @@ def create_destination(
         bq = BigQueryDestination(
             project_id=destination_data.project_id,
             dataset=destination_data.dataset,
-            credentials=destination_data.credentials,
-            bucket_name=destination_data.bucket_name,
-            folder_path=destination_data.folder_path,
-            hmac_key=destination_data.hmac_key,
-            hmac_secret=destination_data.hmac_secret
+            credentials_json_base64=destination_data.credentials_json_base64
         )
         
         if not bq.check_connection():
@@ -52,10 +48,9 @@ def create_destination(
     # Create the destination entry
     destination = Destination(
         name=destination_data.name,
-        type="bigquery",
         project_id=destination_data.project_id,
         dataset=destination_data.dataset,
-        credentials=destination_data.credentials,
+        credentials_json_base64=destination_data.credentials_json_base64,
         bucket_name=destination_data.bucket_name,
         folder_path=destination_data.folder_path,
         hmac_key=destination_data.hmac_key,

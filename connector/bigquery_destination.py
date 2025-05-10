@@ -1,5 +1,6 @@
 from google.cloud import bigquery
 from google.oauth2 import service_account
+import base64
 import json
 import logging
 
@@ -7,7 +8,12 @@ class BigQueryDestination:
     """
     A class to handle BigQuery connection and schema operations.
     """
-    def __init__(self, project_id, dataset, credentials_json=None):
+    def __init__(
+            self, 
+            project_id, 
+            dataset,
+            credentials_json_base64 
+            ):
         """
         Initialize BigQuery connection parameters.
         
@@ -18,16 +24,13 @@ class BigQueryDestination:
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        if credentials_path:
-            self.credentials = service_account.Credentials.from_service_account_file(
-                credentials_path
-            )
-            self.project_id = self._get_project_id_from_credentials(credentials_path)
-        elif credentials_json:
+        if credentials_json_base64:
+            decoded_json = base64.b64decode(credentials_json_base64).decode('utf-8')
+            credentials_dict = json.loads(decoded_json)
             self.credentials = service_account.Credentials.from_service_account_info(
-                json.loads(credentials_json)
+                credentials_dict
             )
-            self.project_id = json.loads(credentials_json).get("project_id")
+            self.project_id = credentials_dict.get("project_id")
         else:
             self.credentials = None
             self.project_id = project_id
@@ -40,6 +43,7 @@ class BigQueryDestination:
             credentials=self.credentials,
             project=self.project_id
         )
+        self.dataset = dataset
     
     def _get_project_id_from_credentials(self, credentials_path):
         """Extract project_id from service account JSON file"""

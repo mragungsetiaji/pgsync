@@ -49,7 +49,7 @@ class SchemaVersion(Base):
     is_current = Column(Boolean, default=True)  # Whether this is the current schema
     created_at = Column(DateTime, server_default=func.now())
 
-    source_db = relationship("Source", back_populates="schema_versions")
+    source = relationship("Source", back_populates="schema_versions")
     
     def to_dict(self):
         return {
@@ -141,7 +141,7 @@ class Destination(Base):
     
     project_id = Column(String(100), nullable=False)
     dataset = Column(String(100), nullable=False)
-    credentials = Column(Text, nullable=False)
+    credentials_json_base64 = Column(Text, nullable=False)
 
     bucket_name = Column(String(100), nullable=False)
     folder_path = Column(String(255), nullable=True)
@@ -159,7 +159,6 @@ class Destination(Base):
         return {
             "id": self.id,
             "name": self.name,
-            "type": self.type,
             "project_id": self.project_id,
             "dataset": self.dataset,
             "bucket_name": self.bucket_name,
@@ -195,7 +194,7 @@ class Connection(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationship
-    source = relationship("Source", backref="connections")
+    source = relationship("Source", back_populates="connections")
     destination = relationship("Destination", back_populates="connections")
     
     def to_dict(self):
