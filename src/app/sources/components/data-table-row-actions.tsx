@@ -1,60 +1,74 @@
-import { DotsHorizontalIcon } from '@radix-ui/react-icons'
-import { Row } from '@tanstack/react-table'
-import { IconEdit, IconTrash } from '@tabler/icons-react'
+'use client'
+
+import { useState } from 'react'
+import { MoreHorizontal, Pencil, Trash } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useSources } from '../context/sources-context'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Source } from '../data/schema'
+import { useSourcesContext } from '../context/sources-context'
 
 interface DataTableRowActionsProps {
-  row: Row<Source>
+  source: Source
 }
 
-export function DataTableRowActions({ row }: DataTableRowActionsProps) {
-  const { setOpen, setCurrentRow } = useSources()
+export function DataTableRowActions({ source }: DataTableRowActionsProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const { 
+    setSelectedSource, 
+    setIsEditDialogOpen,
+    setIsDeleteDialogOpen 
+  } = useSourcesContext()
+
+  // Safety check - ensure source exists and has required properties
+  if (!source || typeof source !== 'object') {
+    console.error("Invalid source object:", source)
+    return null;
+  }
+
+  const handleEdit = () => {
+    setSelectedSource(source)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleDeleteClick = () => {
+    setSelectedSource(source)
+    setIsDeleteDialogOpen(true)
+  }
+
   return (
     <>
-      <DropdownMenu modal={false}>
+      <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant='ghost'
-            className='flex h-8 w-8 p-0 data-[state=open]:bg-muted'
-          >
-            <DotsHorizontalIcon className='h-4 w-4' />
-            <span className='sr-only'>Open menu</span>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='w-[160px]'>
-          <DropdownMenuItem
-            onClick={() => {
-              setCurrentRow(row.original)
-              setOpen('edit')
-            }}
-          >
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleEdit}>
+            <Pencil className="mr-2 h-4 w-4" />
             Edit
-            <DropdownMenuShortcut>
-              <IconEdit size={16} />
-            </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              setCurrentRow(row.original)
-              setOpen('delete')
-            }}
-            className='!text-red-500'
-          >
+          <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600">
+            <Trash className="mr-2 h-4 w-4" />
             Delete
-            <DropdownMenuShortcut>
-              <IconTrash size={16} />
-            </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

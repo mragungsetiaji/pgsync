@@ -1,44 +1,77 @@
-import { useSources } from '../context/sources-context'
+'use client'
+
+import { useSourcesContext } from '../context/sources-context'
 import { SourcesActionDialog } from './sources-action-dialog'
 import { SourcesDeleteDialog } from './sources-delete-dialog'
 
 export function SourcesDialogs() {
-  const { open, setOpen, currentRow, setCurrentRow } = useSources()
+  const {
+    selectedSource,
+    setSelectedSource,
+    isAddDialogOpen, 
+    setIsAddDialogOpen,
+    isEditDialogOpen,
+    setIsEditDialogOpen,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    refreshSources
+  } = useSourcesContext()
+  
   return (
     <>
+      {/* Add Dialog */}
       <SourcesActionDialog
-        key='user-add'
-        open={open === 'add'}
-        onOpenChange={() => setOpen('add')}
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open)
+          if (!open) setSelectedSource(null)
+        }}
+        onSubmitSuccess={() => {
+          refreshSources()
+        }}
       />
-
-      {currentRow && (
-        <>
-          <SourcesActionDialog
-            key={`user-edit-${currentRow.id}`}
-            open={open === 'edit'}
-            onOpenChange={() => {
-              setOpen('edit')
-              setTimeout(() => {
-                setCurrentRow(null)
-              }, 500)
-            }}
-            currentRow={currentRow}
-          />
-
-          <SourcesDeleteDialog
-            key={`user-delete-${currentRow.id}`}
-            open={open === 'delete'}
-            onOpenChange={() => {
-              setOpen('delete')
-              setTimeout(() => {
-                setCurrentRow(null)
-              }, 500)
-            }}
-            currentRow={currentRow}
-          />
-        </>
-      )}
+      
+      {/* Edit Dialog */}
+      <SourcesActionDialog
+        currentRow={selectedSource!}
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open)
+          if (!open) setSelectedSource(null)
+        }}
+        onSubmitSuccess={() => {
+          refreshSources()
+        }}
+      />
+      
+      {/* Delete Dialog */}
+      <SourcesDeleteDialog 
+        source={selectedSource}
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open) setSelectedSource(null)
+        }}
+        onDelete={async () => {
+          if (!selectedSource) return
+          
+          try {
+            const response = await fetch(`/api/sources/${selectedSource.id}`, {
+              method: 'DELETE',
+            })
+            
+            if (!response.ok) {
+              throw new Error('Failed to delete source')
+            }
+            
+            await refreshSources()
+            setIsDeleteDialogOpen(false)
+            setSelectedSource(null)
+          } catch (error) {
+            console.error('Error deleting source:', error)
+          }
+        }}
+      />
     </>
   )
 }

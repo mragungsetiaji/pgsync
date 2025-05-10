@@ -1,134 +1,110 @@
+'use client'
+
 import { ColumnDef } from '@tanstack/react-table'
-import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import LongText from '@/components/long-text'
-import { callTypes } from '../data/data'
 import { Source } from '../data/schema'
 import { DataTableColumnHeader } from './data-table-column-header'
 import { DataTableRowActions } from './data-table-row-actions'
-import { formatDistanceToNow } from 'date-fns'
-import { Database, Server } from 'lucide-react'
+// import { sourceStatusStyles } from '../data/data'
+import { formatDistanceToNow, isValid, parseISO } from 'date-fns'
 
 export const columns: ColumnDef<Source>[] = [
   {
-    id: 'select',
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && 'indeterminate')
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label='Select all'
-        className='translate-y-[2px]'
-      />
-    ),
-    meta: {
-      className: cn(
-        'sticky md:table-cell left-0 z-10 rounded-tl',
-        'bg-background transition-colors duration-200 group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted'
-      ),
-    },
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label='Select row'
-        className='translate-y-[2px]'
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
     accessorKey: 'name',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Name' />
+      <DataTableColumnHeader column={column} title="Name" />
     ),
-    cell: ({ row }) => (
-      <LongText className='max-w-36'>{row.getValue('name')}</LongText>
-    ),
-    meta: {
-      className: cn(
-        'drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.1)] dark:drop-shadow-[0_1px_2px_rgb(255_255_255_/_0.1)] lg:drop-shadow-none',
-        'bg-background transition-colors duration-200 group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted',
-        'sticky left-6 md:table-cell'
-      ),
-    },
-    enableHiding: false,
+    cell: ({ row }) => <div className="font-medium">{row.getValue('name')}</div>,
   },
   {
-    accessorKey: 'connector',
+    accessorKey: 'host',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Connector' />
+      <DataTableColumnHeader column={column} title="Host" />
     ),
-    cell: ({ row }) => {
-      const connector = row.getValue('connector') as string
-      return (
-        <div className='flex gap-x-2 items-center'>
-          <Server size={16} className='text-muted-foreground' />
-          <span className='capitalize text-sm'>{connector}</span>
-        </div>
-      )
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
-    enableSorting: false,
+    cell: ({ row }) => <div>{row.getValue('host')}</div>,
   },
   {
-    accessorKey: 'dataset',
+    accessorKey: 'port',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Dataset' />
+      <DataTableColumnHeader column={column} title="Port" />
     ),
-    cell: ({ row }) => {
-      return (
-        <div className='flex gap-x-2 items-center'>
-          <Database size={16} className='text-muted-foreground' />
-          <span className='text-sm'>{row.getValue('dataset')}</span>
-        </div>
-      )
-    },
+    cell: ({ row }) => <div>{row.getValue('port')}</div>,
   },
   {
-    accessorKey: 'lastSync',
+    accessorKey: 'database',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Last Sync' />
+      <DataTableColumnHeader column={column} title="Database" />
     ),
-    cell: ({ row }) => {
-      const date = row.getValue('lastSync') as Date
-      return (
-        <div className='text-sm'>
-          {formatDistanceToNow(date, { addSuffix: true })}
-        </div>
-      )
-    },
+    cell: ({ row }) => <div>{row.getValue('database')}</div>,
+  },
+  {
+    accessorKey: 'user',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="User" />
+    ),
+    cell: ({ row }) => <div>{row.getValue('user')}</div>,
   },
   {
     accessorKey: 'status',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Status' />
+      <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => {
-      const { status } = row.original
-      const badgeColor = callTypes.get(status)
+      const status = row.getValue('status') as string
+      const styles = sourceStatusStyles.get(status as any) || ''
+      
       return (
-        <div className='flex space-x-2'>
-          <Badge variant='outline' className={cn('capitalize', badgeColor)}>
-            {row.getValue('status')}
-          </Badge>
-        </div>
+        <Badge variant="outline" className={`${styles} px-2 py-0.5`}>
+          {status}
+        </Badge>
       )
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
     },
-    enableHiding: false,
-    enableSorting: false,
+  },
+  {
+    accessorKey: 'created_at',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Created" />
+    ),
+    cell: ({ row }) => {
+      const date = row.getValue('created_at')
+      
+      // Handle the date safely
+      if (!date) return <div>-</div>
+      
+      try {
+        // Format the date safely
+        let formattedDate
+        if (typeof date === 'string') {
+          const parsedDate = parseISO(date)
+          formattedDate = isValid(parsedDate) 
+            ? new Date(parsedDate).toLocaleDateString() 
+            : '-'
+        } else {
+          formattedDate = date instanceof Date && isValid(date) 
+            ? date.toLocaleDateString() 
+            : '-'
+        }
+        
+        return <div className='text-sm'>{formattedDate}</div>
+      } catch (error) {
+        console.error('Error formatting date:', error, date)
+        return <div>Invalid date</div>
+      }
+    },
   },
   {
     id: 'actions',
-    cell: DataTableRowActions,
+    cell: ({ row }) => {
+      const source = row.original
+      return <DataTableRowActions source={source} />
+    },
   },
 ]
+
+export const sourceStatusStyles = new Map([
+  ['active', 'bg-green-50 text-green-700 border-green-300'],
+  ['inactive', 'bg-gray-50 text-gray-700 border-gray-300'],
+])

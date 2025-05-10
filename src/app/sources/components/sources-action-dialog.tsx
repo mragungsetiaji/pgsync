@@ -1,6 +1,7 @@
 'use client'
 
 import { z } from 'zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from '@/hooks/use-toast'
@@ -23,85 +24,76 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { PasswordInput } from '@/components/password-input'
-import { SelectDropdown } from '@/components/select-dropdown'
-import { connectorTypeSchema, Source } from '../data/schema'
+import { Checkbox } from '@/components/ui/checkbox'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Source, sourceCreateSchema } from '../data/schema'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 
-// Form validation schema
-const formSchema = z.object({
-  name: z.string().min(1, { message: 'Source name is required.' }),
-  connector: connectorTypeSchema,
-  host: z.string().min(1, { message: 'Host is required.' }),
-  port: z.coerce.number()
-    .int()
-    .min(1, { message: 'Port must be a positive number.' })
-    .max(65535, { message: 'Port must be less than or equal to 65535.' }),
-  database: z.string().min(1, { message: 'Database name is required.' }),
-  user: z.string().min(1, { message: 'Username is required.' }),
-  password: z.string().min(1, { message: 'Password is required.' }),
-  isEdit: z.boolean()
-})
-
-type SourceForm = z.infer<typeof formSchema>
+type SourceForm = z.infer<typeof sourceCreateSchema> & { isEdit: boolean }
 
 interface Props {
-  currentSource?: Source
+  currentRow?: Source
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmitSuccess?: (data: SourceForm) => void
+  onSubmitSuccess?: (data: any) => void
+  dialogHeight?: string
 }
 
 export function SourcesActionDialog({ 
-  currentSource,
+  currentRow, 
   open, 
   onOpenChange,
-  onSubmitSuccess 
+  onSubmitSuccess,
+  dialogHeight = "95vh"  
 }: Props) {
-  const isEdit = !!currentSource
+  const isEdit = !!currentRow
+  const [testingConnection, setTestingConnection] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<{
+    success: boolean; 
+    message: string;
+  } | null>(null)
+
   const form = useForm<SourceForm>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(sourceCreateSchema.extend({ isEdit: z.boolean() })),
     defaultValues: isEdit
       ? {
-          name: currentSource.name,
-          connector: currentSource.connector,
-          host: currentSource.host || '',
-          port: currentSource.port || 5432,
-          database: currentSource.database || '',
-          user: currentSource.user || '',
-          password: '', // For security, don't fill in the password
-          isEdit: true,
+          name: currentRow.name,
+          host: currentRow.host || '',
+          port: currentRow.port || 5432,
+          database: currentRow.database || '',
+          user: currentRow.user || '',
+          password: '', // For security, don't fill in password
+          isEdit,
         }
       : {
           name: '',
-          connector: 'postgres',
           host: '',
           port: 5432,
           database: '',
           user: '',
           password: '',
-          isEdit: false,
+          isEdit,
         },
   })
 
   const onSubmit = async (values: SourceForm) => {
     try {
-      // Prepare payload for API (remove isEdit field which is just for form logic)
+      const endpoint = isEdit 
+        ? `/api/sources/${currentRow?.id}` 
+        : '/api/sources'
+      
       const payload = {
         name: values.name,
-        connector: values.connector,
         host: values.host,
         port: values.port,
         database: values.database,
         user: values.user,
         password: values.password,
+        is_active: true // Default to active
       }
-
-      // Determine whether to create or update
-      const url = isEdit ? `/api/sources/${currentSource?.id}` : '/api/sources'
-      const method = isEdit ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method,
+  
+      const response = await fetch(endpoint, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -110,30 +102,26 @@ export function SourcesActionDialog({
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to save data source')
+        throw new Error(errorData.detail || 'Failed to save source')
       }
 
-      const result = await response.json()
-
-      // Reset form and close dialog
+      const data = await response.json()
+      
+      toast({
+        title: isEdit ? 'Source updated' : 'Source created',
+        description: `${values.name} has been ${isEdit ? 'updated' : 'created'} successfully`,
+      })
+      
       form.reset()
       onOpenChange(false)
       
-      // Notify success
-      toast({
-        title: isEdit ? 'Data source updated' : 'Data source created',
-        description: `${values.name} has been ${isEdit ? 'updated' : 'created'} successfully.`,
-      })
-      
-      // Callback if provided
       if (onSubmitSuccess) {
-        onSubmitSuccess(values)
+        onSubmitSuccess(data)
       }
-    } catch (error) {
-      console.error('Error saving data source:', error)
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save data source',
+        description: error.message || 'An error occurred while saving the source',
         variant: 'destructive',
       })
     }
@@ -141,14 +129,17 @@ export function SourcesActionDialog({
 
   const testConnection = async () => {
     try {
-      const formValues = form.getValues()
+      setTestingConnection(true)
+      setConnectionStatus(null)
       
-      const payload = {
-        host: formValues.host,
-        port: formValues.port,
-        database: formValues.database,
-        user: formValues.user,
-        password: formValues.password,
+      // Get current form values
+      const values = form.getValues()
+      
+      const requiredFields = ['host', 'port', 'database', 'user', 'password']
+      const missingFields = requiredFields.filter(field => !values[field as keyof typeof values])
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Please fill in all required fields: ${missingFields.join(', ')}`)
       }
       
       const response = await fetch('/api/sources/test-connection', {
@@ -156,212 +147,225 @@ export function SourcesActionDialog({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          host: values.host,
+          port: values.port,
+          database: values.database,
+          user: values.user,
+          password: values.password,
+        }),
       })
+
+      const data = await response.json()
       
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Connection test failed')
+        throw new Error(data.detail || 'Connection test failed')
       }
       
-      toast({
-        title: 'Connection successful',
-        description: 'Successfully connected to the database.',
+      setConnectionStatus({
+        success: data.status === 'success',
+        message: data.message,
       })
-    } catch (error) {
-      console.error('Connection test error:', error)
-      toast({
-        title: 'Connection failed',
-        description: error instanceof Error ? error.message : 'Failed to connect to the database',
-        variant: 'destructive',
+    } catch (error: any) {
+      setConnectionStatus({
+        success: false,
+        message: error.message || 'Connection test failed',
       })
+    } finally {
+      setTestingConnection(false)
     }
   }
 
-  const connectorOptions = [
-    { label: 'PostgreSQL', value: 'postgres' },
-  ]
+  // Calculate the content height based on dialog height
+  const contentHeight = "calc(100% - 70px)" // Height minus header and footer space
 
   return (
     <Dialog
       open={open}
       onOpenChange={(state) => {
-        form.reset()
+        if (!state) {
+          form.reset()
+          setConnectionStatus(null)
+        }
         onOpenChange(state)
       }}
     >
-      <DialogContent className='sm:max-w-lg'>
-        <DialogHeader className='text-left'>
-          <DialogTitle>{isEdit ? 'Edit Data Source' : 'Add New Data Source'}</DialogTitle>
+      <DialogContent className="sm:max-w-2xl" style={{ maxHeight: dialogHeight, height: dialogHeight }}>
+        <DialogHeader className="text-left">
+          <DialogTitle>{isEdit ? 'Edit Source' : 'Add New Source'}</DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Update the data source connection details. ' : 'Create a new data source connection. '}
-            Click save when you&apos;re done.
+            {isEdit ? 'Update source settings here. ' : 'Configure your PostgreSQL source. '}
+            Click save when you're done.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className='h-[26.25rem] w-full pr-4 -mr-4 py-1'>
+        
+        <ScrollArea className="h-[460px] w-full pr-4 -mr-4 py-1" style={{ height: contentHeight }}>
           <Form {...form}>
             <form
-              id='source-form'
+              id="source-form"
               onSubmit={form.handleSubmit(onSubmit)}
-              className='space-y-4 p-0.5'
+              className="space-y-4 p-0.5"
             >
               <FormField
                 control={form.control}
-                name='name'
+                name="name"
                 render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Source Name
+                  <FormItem className="grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0">
+                    <FormLabel className="col-span-2 text-right">
+                      Name *
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='Production Database'
-                        className='col-span-4'
-                        autoComplete='off'
+                        placeholder="My PostgreSQL Source"
+                        className="col-span-4"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
+                    <FormMessage className="col-span-4 col-start-3" />
                   </FormItem>
                 )}
               />
               
               <FormField
                 control={form.control}
-                name='connector'
+                name="host"
                 render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Connector Type
-                    </FormLabel>
-                    <SelectDropdown
-                      defaultValue={field.value}
-                      onValueChange={field.onChange}
-                      placeholder='Select connector type'
-                      className='col-span-4'
-                      items={connectorOptions}
-                    />
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name='host'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Host
+                  <FormItem className="grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0">
+                    <FormLabel className="col-span-2 text-right">
+                      Host *
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='localhost or 127.0.0.1'
-                        className='col-span-4'
-                        autoComplete='off'
+                        placeholder="localhost"
+                        className="col-span-4"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
+                    <FormMessage className="col-span-4 col-start-3" />
                   </FormItem>
                 )}
               />
               
               <FormField
                 control={form.control}
-                name='port'
+                name="port"
                 render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Port
+                  <FormItem className="grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0">
+                    <FormLabel className="col-span-2 text-right">
+                      Port *
                     </FormLabel>
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder='5432'
-                        className='col-span-4'
+                        placeholder="5432"
+                        className="col-span-4"
                         {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
                       />
                     </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
+                    <FormMessage className="col-span-4 col-start-3" />
                   </FormItem>
                 )}
               />
               
               <FormField
                 control={form.control}
-                name='database'
+                name="database"
                 render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Database Name
+                  <FormItem className="grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0">
+                    <FormLabel className="col-span-2 text-right">
+                      Database *
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='postgres'
-                        className='col-span-4'
-                        autoComplete='off'
+                        placeholder="postgres"
+                        className="col-span-4"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
+                    <FormMessage className="col-span-4 col-start-3" />
                   </FormItem>
                 )}
               />
               
               <FormField
                 control={form.control}
-                name='user'
+                name="user"
                 render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Username
+                  <FormItem className="grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0">
+                    <FormLabel className="col-span-2 text-right">
+                      Username *
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='postgres'
-                        className='col-span-4'
-                        autoComplete='off'
+                        placeholder="postgres"
+                        className="col-span-4"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
+                    <FormMessage className="col-span-4 col-start-3" />
                   </FormItem>
                 )}
               />
               
               <FormField
                 control={form.control}
-                name='password'
+                name="password"
                 render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0'>
-                    <FormLabel className='col-span-2 text-right'>
-                      Password
+                  <FormItem className="grid grid-cols-6 items-center gap-x-4 gap-y-1 space-y-0">
+                    <FormLabel className="col-span-2 text-right">
+                      Password *
                     </FormLabel>
                     <FormControl>
-                      <PasswordInput
-                        placeholder={isEdit ? 'Enter to change password' : 'Enter password'}
-                        className='col-span-4'
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        className="col-span-4"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
+                    <FormMessage className="col-span-4 col-start-3" />
                   </FormItem>
                 )}
               />
+              
+              {connectionStatus && (
+                <div className="col-span-4 col-start-3 mt-2">
+                  <Alert variant={connectionStatus.success ? "default" : "destructive"}>
+                    <div className="flex items-start gap-2">
+                      {connectionStatus.success ? (
+                        <CheckCircle2 className="h-4 w-4 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 mt-0.5" />
+                      )}
+                      <div>
+                        <AlertTitle>
+                          {connectionStatus.success ? "Connection successful" : "Connection failed"}
+                        </AlertTitle>
+                        <AlertDescription>
+                          {connectionStatus.message}
+                        </AlertDescription>
+                      </div>
+                    </div>
+                  </Alert>
+                </div>
+              )}
+              
             </form>
           </Form>
         </ScrollArea>
-        <DialogFooter>
+        
+        <DialogFooter className="flex items-center gap-2">
           <Button 
             type="button" 
             variant="outline" 
             onClick={testConnection}
+            disabled={testingConnection}
           >
-            Test Connection
+            {testingConnection ? "Testing..." : "Test connection"}
           </Button>
-          <Button type='submit' form='source-form'>
-            {isEdit ? 'Update Source' : 'Create Source'}
+          <Button type="submit" form="source-form">
+            Save changes
           </Button>
         </DialogFooter>
       </DialogContent>
