@@ -1,10 +1,11 @@
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  CaretSortIcon,
-  EyeNoneIcon,
-} from '@radix-ui/react-icons'
+  EyeOffIcon,
+  ChevronsUpDownIcon,
+} from 'lucide-react'
 import { Column } from '@tanstack/react-table'
+
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,7 +46,7 @@ export function DataTableColumnHeader<TData, TValue>({
             ) : column.getIsSorted() === 'asc' ? (
               <ArrowUpIcon className='ml-2 h-4 w-4' />
             ) : (
-              <CaretSortIcon className='ml-2 h-4 w-4' />
+              <ChevronsUpDownIcon className='ml-2 h-4 w-4' />
             )}
           </Button>
         </DropdownMenuTrigger>
@@ -58,15 +59,11 @@ export function DataTableColumnHeader<TData, TValue>({
             <ArrowDownIcon className='mr-2 h-3.5 w-3.5 text-muted-foreground/70' />
             Desc
           </DropdownMenuItem>
-          {column.getCanHide() && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-                <EyeNoneIcon className='mr-2 h-3.5 w-3.5 text-muted-foreground/70' />
-                Hide
-              </DropdownMenuItem>
-            </>
-          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
+            <EyeOffIcon className='mr-2 h-3.5 w-3.5 text-muted-foreground/70' />
+            Hide
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

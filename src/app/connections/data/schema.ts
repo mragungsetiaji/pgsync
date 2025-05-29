@@ -1,45 +1,43 @@
 import { z } from 'zod'
 
-export const connectionStatusSchema = z.union([
-  z.literal('active'),
-  z.literal('inactive'),
-  z.literal('suspended'),
-])
-export type ConnectionStatus = z.infer<typeof connectionStatusSchema>
+export const connectionStatusValues = ['active', 'inactive'] as const
+export const scheduleTypeValues = ['manual', 'cron'] as const
 
-export const connectorTypeSchema = z.union([
-  z.literal('bigquery'),
-  z.literal('snowflake'),
-  z.literal('redshift'),
-  z.literal('postgres'),
-])
-export type ConnectorType = z.infer<typeof connectorTypeSchema>
+export const connectionStatusSchema = z.enum(connectionStatusValues)
+export const scheduleTypeSchema = z.enum(scheduleTypeValues)
 
-export const sourceSchema = z.object({
-  id: z.string(),
+export const connectionSchema = z.object({
+  id: z.string().or(z.number()).transform(val => String(val)),
   name: z.string(),
-  connector: connectorTypeSchema,
-  host: z.string().optional(),
-  port: z.number().optional(),
-  database: z.string().optional(),
-  user: z.string().optional(),
-  // We don't include password in the response schema for security
-  dataset: z.string().optional(),
-  lastSync: z.coerce.date().optional(),
-  status: sourceStatusSchema.optional().default('inactive'),
+  source_id: z.number().or(z.string()).transform(val => Number(val)),
+  source_db_name: z.string().optional(),
+  destination_id: z.number().or(z.string()).transform(val => Number(val)),
+  destination_name: z.string().optional(),
+  schedule_type: scheduleTypeSchema,
+  cron_expression: z.string().nullable().optional(),
+  timezone: z.string().default("UTC"),
+  is_active: z.boolean(),
+  connection_state: z.record(z.any()).nullable().optional(),
+  last_run_at: z.string().or(z.date()).nullable().optional(),
+  next_run_at: z.string().or(z.date()).nullable().optional(),
+  created_at: z.string().or(z.date()).optional(),
+  updated_at: z.string().or(z.date()).optional()
 })
-export type Source = z.infer<typeof sourceSchema>
 
-export const sourceListSchema = z.array(sourceSchema)
+export type Connection = z.infer<typeof connectionSchema>
 
-// Schema for creating a new source
-export const sourceCreateSchema = z.object({
-  name: z.string().min(1),
-  connector: connectorTypeSchema,
-  host: z.string().min(1),
-  port: z.number().int().positive().max(65535),
-  database: z.string().min(1),
-  user: z.string().min(1),
-  password: z.string().min(1),
+export const connectionCreateSchema = z.object({
+  name: z.string().min(1, { message: 'Name is required' }),
+  source_db_id: z.number().positive({ message: 'Source is required' }),
+  destination_id: z.number().positive({ message: 'Destination is required' }),
+  schedule_type: scheduleTypeSchema.default('manual'),
+  cron_expression: z.string().nullable().optional(),
+  timezone: z.string().default("UTC"),
+  is_active: z.boolean().default(true),
+  connection_state: z.record(z.any()).nullable().optional(),
 })
-export type SourceCreate = z.infer<typeof sourceCreateSchema>
+
+export type ConnectionCreate = z.infer<typeof connectionCreateSchema>
+
+export const connectionUpdateSchema = connectionCreateSchema.partial()
+export type ConnectionUpdate = z.infer<typeof connectionUpdateSchema>
